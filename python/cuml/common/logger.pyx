@@ -20,6 +20,7 @@
 # cython: language_level = 3
 
 
+import ctypes
 from libcpp.string cimport string
 from libcpp cimport bool
 
@@ -30,6 +31,7 @@ cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         Logger& get()
         void setLevel(int level)
         void setPattern(const string& pattern)
+        void registerCallback(void (*callback)(int, const char*))
         bool shouldLogFor(int level) const
         int getLevel() const
         string getPattern() const
@@ -170,6 +172,12 @@ def set_pattern(pattern):
     cdef string s = pattern.encode("UTF-8")
     Logger.get().setPattern(s)
     return context_object
+
+
+@ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p)
+def _log_callback(lvl, msg):
+    """Redirect logs from native library to Python logging"""
+    print(msg.value.decode('utf-8'))
 
 
 def should_log_for(level):

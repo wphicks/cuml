@@ -105,6 +105,13 @@ class Logger {
   void setPattern(const std::string& pattern);
 
   /**
+   * @brief Register a callback function to be run on every logged message
+   *
+   * @param[in] callback the function to be run on all logged messages.
+   */
+  void registerCallback(void (*callback)(int, const char*));
+
+  /**
    * @brief Tells whether messages will be logged for the given log level
    *
    * @param[in] level log level to be checked for
@@ -139,6 +146,8 @@ class Logger {
 
   std::shared_ptr<spdlog::logger> logger;
   std::string currPattern;
+
+  void (*logCallback)(int, const char*);
   static const std::string DefaultPattern;
 };  // class Logger
 

@@ -48,7 +48,7 @@ Logger& Logger::get() {
   return logger;
 }
 
-Logger::Logger() : logger{spdlog::stdout_color_mt("cuml")}, currPattern() {
+Logger::Logger() : logger{spdlog::stdout_color_mt("cuml")}, currPattern(), logCallback(nullptr) {
   setPattern(DefaultPattern);
   setLevel(CUML_LEVEL_INFO);
 }
@@ -61,6 +61,10 @@ void Logger::setLevel(int level) {
 void Logger::setPattern(const std::string& pattern) {
   currPattern = pattern;
   logger->set_pattern(pattern);
+}
+
+void Logger::registerCallback(void (*callback)(int, const char*)) {
+  logCallback = callback;
 }
 
 bool Logger::shouldLogFor(int level) const {
@@ -84,6 +88,9 @@ void Logger::log(int level, const char* fmt, ...) {
     auto msg = format(fmt, vl);
     va_end(vl);
     logger->log(level_e, msg);
+    if (logCallback != nullptr) {
+      logCallback(level, msg.c_str());
+    }
   }
 }
 
