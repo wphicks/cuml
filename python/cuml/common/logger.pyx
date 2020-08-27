@@ -20,6 +20,7 @@
 # cython: language_level = 3
 
 
+import logging
 import sys
 from libcpp.string cimport string
 from libcpp cimport bool
@@ -75,9 +76,33 @@ level_critical = CUML_LEVEL_CRITICAL
 """Disables all log messages"""
 level_off = CUML_LEVEL_OFF
 
+_py_logger = logging.getLogger('cuml')
+
+_py_logger.setLevel(logging.DEBUG)
+_console_handler = logging.StreamHandler(sys.stdout)
+_console_handler.setLevel(logging.DEBUG)
+_formatter = logging.Formatter('[%(levelname)s] [%(asctime)s] %(message)s')
+_console_handler.setFormatter(_formatter)
+_py_logger.addHandler(_console_handler)
 
 cdef void _log_callback(int lvl, const char * msg):
-    print(msg.decode('utf-8'))
+    py_msg = msg.decode('utf-8')
+    if lvl in (level_trace, level_debug):
+        _py_logger.debug(py_msg)
+    elif lvl in (level_info,):
+        _py_logger.info(py_msg)
+    elif lvl in (level_warn,):
+        _py_logger.warning(py_msg)
+    elif lvl in (level_error,):
+        _py_logger.error(py_msg)
+    elif lvl in (level_critical,):
+        _py_logger.critical(py_msg)
+    elif lvl not in (level_off,):
+        _py_logger.warning(
+            'Logging message received at unknown level {}: "{}"'.format(
+                lvl, py_msg
+            )
+        )
 
 if sys.__stdout__ != sys.stdout:
     Logger.get().registerCallback(_log_callback)

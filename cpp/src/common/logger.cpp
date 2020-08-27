@@ -79,8 +79,8 @@ int Logger::getLevel() const {
 }
 
 void Logger::log(int level, const char* fmt, ...) {
-  level = convert_level_to_spdlog(level);
-  auto level_e = static_cast<spdlog::level::level_enum>(level);
+  int spd_level = convert_level_to_spdlog(level);
+  auto level_e = static_cast<spdlog::level::level_enum>(spd_level);
   // explicit check to make sure that we only expand messages when required
   if (logger->should_log(level_e)) {
     va_list vl;
