@@ -20,7 +20,7 @@
 # cython: language_level = 3
 
 
-import ctypes
+import sys
 from libcpp.string cimport string
 from libcpp cimport bool
 
@@ -79,7 +79,8 @@ level_off = CUML_LEVEL_OFF
 cdef void _log_callback(int lvl, const char * msg):
     print(msg.decode('utf-8'))
 
-Logger.get().registerCallback(_log_callback)
+if sys.__stdout__ != sys.stdout:
+    Logger.get().registerCallback(_log_callback)
 
 
 class LogLevelSetter:
