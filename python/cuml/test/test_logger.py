@@ -14,7 +14,9 @@
 # limitations under the License.
 #
 
+from contextlib import redirect_stdout
 import cuml.common.logger as logger
+from io import StringIO
 
 
 def test_logger():
@@ -31,3 +33,12 @@ def test_logger():
 
     with logger.set_pattern("%v"):
         logger.info("This is an info message")
+
+
+def test_redirected_logger():
+    new_stdout = StringIO()
+    test_msg = "This is a test message"
+    with redirect_stdout(new_stdout):
+        logger.warn(test_msg)
+
+    assert test_msg in new_stdout.getvalue()
