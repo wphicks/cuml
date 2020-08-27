@@ -87,8 +87,9 @@ void Logger::log(int level, const char* fmt, ...) {
     va_start(vl, fmt);
     auto msg = format(fmt, vl);
     va_end(vl);
-    logger->log(level_e, msg);
-    if (logCallback != nullptr) {
+    if (logCallback == nullptr) {
+      logger->log(level_e, msg);
+    } else {
       logCallback(level, msg.c_str());
     }
   }

@@ -25,13 +25,13 @@ from libcpp.string cimport string
 from libcpp cimport bool
 
 
-cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
+cdef extern from "cuml/common/logger.hpp" namespace "ML":
     cdef cppclass Logger:
         @staticmethod
         Logger& get()
         void setLevel(int level)
         void setPattern(const string& pattern)
-        void registerCallback(void (*callback)(int, const char*))
+        void registerCallback(void (*callback)(int, char*))
         bool shouldLogFor(int level) const
         int getLevel() const
         string getPattern() const
@@ -74,6 +74,12 @@ level_critical = CUML_LEVEL_CRITICAL
 
 """Disables all log messages"""
 level_off = CUML_LEVEL_OFF
+
+
+cdef void _log_callback(int lvl, const char * msg):
+    print(msg.decode('utf-8'))
+
+Logger.get().registerCallback(_log_callback)
 
 
 class LogLevelSetter:
@@ -172,12 +178,6 @@ def set_pattern(pattern):
     cdef string s = pattern.encode("UTF-8")
     Logger.get().setPattern(s)
     return context_object
-
-
-@ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p)
-def _log_callback(lvl, msg):
-    """Redirect logs from native library to Python logging"""
-    print(msg.value.decode('utf-8'))
 
 
 def should_log_for(level):
