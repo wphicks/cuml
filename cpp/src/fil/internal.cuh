@@ -19,39 +19,10 @@
 #pragma once
 
 #include <cuml/cuml.hpp>
+#include <cuml/fil/fil.h>
 
 namespace ML {
 namespace fil {
-
-/**
- * output_t are flags that define the output produced by the FIL predictor; a
- * valid output_t values consists of the following, combined using '|' (bitwise
- * or), which define stages, which operation in the next stage applied to the
- * output of the previous stage:
- * - one of RAW or AVG, indicating how to combine individual tree outputs into the forest output
- * - optional SIGMOID for applying the sigmoid transform
- * - optional CLASS, to output the class label
- */
-enum output_t {
-  /** raw output: the sum of the tree outputs; use for GBM models for
-      regression, or for binary classification for the value before the
-      transformation; note that this value is 0, and may be omitted
-      when combined with other flags */
-  RAW = 0x0,
-  /** average output: divide the sum of the tree outputs by the number of trees
-      before further transformations; use for random forests for regression
-      and binary classification for the probability */
-  AVG = 0x1,
-  /** sigmoid transformation: apply 1/(1+exp(-x)) to the sum or average of tree
-      outputs; use for GBM binary classification models for probability */
-  SIGMOID = 0x10,
-  /** output class label: either apply threshold to the output of the previous stage (for binary classification),
-      or select the class with the most votes to get the class label (for multi-class classification).  */
-  CLASS = 0x100,
-  SIGMOID_CLASS = SIGMOID | CLASS,
-  AVG_CLASS = AVG | CLASS,
-  AVG_SIGMOID_CLASS = AVG | SIGMOID | CLASS,
-};
 
 /** val_t is the payload within a FIL leaf */
 union val_t {
@@ -150,37 +121,6 @@ struct alignas(8) sparse_node8 : base_node {
   __host__ __device__ int left(int curr) const { return left_index(); }
 };
 
-/** leaf_algo_t describes what the leaves in a FIL forest store (predict)
-    and how FIL aggregates them into class margins/regression result/best class
-**/
-enum leaf_algo_t {
-  /** storing a class probability or regression summand. We add all margins
-      together and determine regression result or use threshold to determine
-      one of the two classes. **/
-  FLOAT_UNARY_BINARY = 0,
-  /** storing a class label. Trees vote on the resulting class.
-      Probabilities are just normalized votes. */
-  CATEGORICAL_LEAF = 1,
-  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
-      consecutive categories and predict a floating-point margin. Used in
-      Gradient Boosted Decision Trees. We sum margins for each group separately
-      **/
-  GROVE_PER_CLASS = 2,
-  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
-      consecutive categories and predict a floating-point margin. Used in
-      Gradient Boosted Decision Trees. We sum margins for each group separately
-      This is a more specific version of GROVE_PER_CLASS.
-      _FEW_CLASSES means fewer (or as many) classes than threads. **/
-  GROVE_PER_CLASS_FEW_CLASSES = 3,
-  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
-      consecutive categories and predict a floating-point margin. Used in
-      Gradient Boosted Decision Trees. We sum margins for each group separately
-      This is a more specific version of GROVE_PER_CLASS.
-      _MANY_CLASSES means more classes than threads. **/
-  GROVE_PER_CLASS_MANY_CLASSES = 4,
-  // to be extended
-};
-
 template <leaf_algo_t leaf_algo>
 struct leaf_output_t {};
 template <>
@@ -198,39 +138,6 @@ struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES> {
 template <>
 struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
   typedef float T;
-};
-
-/** forest_params_t are the trees to initialize the predictor */
-struct forest_params_t {
-  // total number of nodes; ignored for dense forests
-  int num_nodes;
-  // maximum depth; ignored for sparse forests
-  int depth;
-  // ntrees is the number of trees
-  int num_trees;
-  // num_cols is the number of columns in the data
-  int num_cols;
-  // leaf_algo determines what the leaves store (predict)
-  leaf_algo_t leaf_algo;
-  // algo is the inference algorithm;
-  // sparse forests do not distinguish between NAIVE and TREE_REORG
-  algo_t algo;
-  // output is the desired output type
-  output_t output;
-  // threshold is used to for classification if leaf_algo == FLOAT_UNARY_BINARY && (output & OUTPUT_CLASS) != 0 && !predict_proba,
-  // and is ignored otherwise
-  float threshold;
-  // global_bias is added to the sum of tree predictions
-  // (after averaging, if it is used, but before any further transformations)
-  float global_bias;
-  // only used for CATEGORICAL_LEAF inference. since we're storing the
-  // labels in leaves instead of the whole vector, this keeps track
-  // of the number of classes
-  int num_classes;
-  // blocks_per_sm, if nonzero, works as a limit to improve cache hit rate for larger forests
-  // suggested values (if nonzero) are from 2 to 7
-  // if zero, launches ceildiv(num_rows, NITEMS) blocks
-  int blocks_per_sm;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf

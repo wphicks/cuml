@@ -349,25 +349,22 @@ class BaseRandomForestModel(Base):
                             predict_model='CPU' to use the CPU implementation \
                             of predict.")
 
-        treelite_handle = self._obtain_treelite_handle()
-
         storage_type = \
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,
                                           algo=algo)
         fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
                                     output_type=self.output_type)
-        tl_to_fil_model = \
-            fil_model.load_using_treelite_handle(treelite_handle,
-                                                 output_class=output_class,
-                                                 threshold=threshold,
-                                                 algo=algo,
-                                                 storage_type=storage_type)
+        fil_model.load_from_rf_model(self.handle,
+                                     output_class=output_class,
+                                     threshold=threshold,
+                                     algo=algo,
+                                     storage_type=storage_type)
 
         if (predict_proba):
-            preds = tl_to_fil_model.predict_proba(X)
+            preds = fil_model.predict_proba(X)
         else:
-            preds = tl_to_fil_model.predict(X)
+            preds = fil_model.predict(X)
         return preds
 
     def get_param_names(self):

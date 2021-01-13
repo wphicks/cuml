@@ -33,6 +33,7 @@ from libc.stdlib cimport calloc, malloc, free
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.ensemble.randomforest_shared cimport RandomForestMetaData
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
 
@@ -182,6 +183,35 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         # limit number of CUDA blocks launched per GPU SM (or unlimited if 0)
         # this affects inference performance and will become configurable soon
 
+    cdef enum leaf_algo_t:
+        FLOAT_UNARY_BINARY,
+        CATEGORICAL_LEAF,
+        GROVE_PER_CLASS,
+        GROVE_PER_CLASS_FEW_CLASSES,
+        GROVE_PER_CLASS_MANY_CLASSES
+
+    cdef enum output_t:
+        RAW,
+        AVG,
+        SIGMOID,
+        CLASS,
+        SIGMOID_CLASS,
+        AVG_CLASS,
+        AVG_SIGMOID_CLASS
+
+    cdef struct forest_params_t:
+        int num_nodes
+        int depth
+        int num_trees
+        int num_cols
+        leaf_algo_t leaf_algo
+        algo_t algo
+        output_t output
+        float threshold
+        float global_bias
+        int num_classes
+        int blocks_per_sm
+
     cdef void free(handle_t& handle,
                    forest_t)
 
@@ -192,10 +222,16 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                       size_t,
                       bool) except +
 
-    cdef forest_t from_treelite(handle_t& handle,
+    cdef void from_treelite(handle_t& handle,
                                 forest_t*,
                                 ModelHandle,
                                 treelite_params_t*) except +
+
+    cdef void from_rf[T, L](handle_t& handle,
+                            forest_t*,
+                            RandomForestMetaData[T, L]*,
+                            forest_params_t*,
+                            storage_type_t) except +
 
 cdef class ForestInference_impl():
 
@@ -382,6 +418,37 @@ cdef class ForestInference_impl():
                       &treelite_params)
         TreeliteQueryNumClass(<ModelHandle> model_ptr,
                               &self.num_class)
+        return self
+
+    def load_from_rf_model(
+            self,
+            model,
+            bool output_class,
+            str algo,
+            float threshold,
+            str storage_type,
+            int blocks_per_sm):
+        cdef handle_t* handle_ =\
+            <handle_t*><size_t>self.handle.getHandle()
+        cdef storage_type_t storage_type_enum = self.get_storage_type(storage_type)
+        self.output_class = output_class
+
+        cdef forest_params_t forest_params
+        forest_params.threshold = threshold
+        forest_params.algo = self.get_algo(algo)
+        forest_params.blocks_per_sm = blocks_per_sm
+        forest_params.depth = model.max_depth
+        forest_params.num_trees = model.n_estimators
+        forest_params.num_classes = model.num_classes
+
+        from_rf[float, int](
+            handle_[0],
+            &self.forest_data,
+            <RandomForestMetaData[float, int]*> <uintptr_t> model.rf_forest,
+            &forest_params,
+            storage_type_enum
+        )
+
         return self
 
     def __dealloc__(self):
@@ -606,6 +673,20 @@ class ForestInference(Base):
             return self._impl.load_from_treelite_model_handle(
                 model.handle.value, output_class, algo, threshold,
                 str(storage_type), blocks_per_sm)
+
+    def load_from_rf_model(self,
+                           model,
+                           output_class=False,
+                           algo='auto',
+                           threshold=0.5,
+                           storage_type='auto',
+                           blocks_per_sm=0):
+        self._impl.load_from_rf_model(model,
+                                      output_class,
+                                      algo,
+                                      threshold,
+                                      storage_type,
+                                      blocks_per_sm)
 
     @staticmethod
     def load_from_sklearn(skl_model,
