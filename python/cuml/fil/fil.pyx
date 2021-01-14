@@ -227,11 +227,47 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
                                 ModelHandle,
                                 treelite_params_t*) except +
 
-    cdef void from_rf[T, L](handle_t& handle,
-                            forest_t*,
-                            RandomForestMetaData[T, L]*,
-                            forest_params_t*,
-                            storage_type_t) except +
+    cdef void from_cuml_rf(handle_t& handle,
+                           forest_t*,
+                           RandomForestMetaData[double, double]*,
+                           forest_params_t*,
+                           storage_type_t,
+                           bool) except +
+
+    cdef void from_cuml_rf(handle_t& handle,
+                           forest_t*,
+                           RandomForestMetaData[double, float]*,
+                           forest_params_t*,
+                           storage_type_t,
+                           bool) except +
+
+    cdef void from_cuml_rf(handle_t& handle,
+                           forest_t*,
+                           RandomForestMetaData[float, double]*,
+                           forest_params_t*,
+                           storage_type_t,
+                           bool) except +
+
+    cdef void from_cuml_rf(handle_t& handle,
+                           forest_t*,
+                           RandomForestMetaData[float, float]*,
+                           forest_params_t*,
+                           storage_type_t,
+                           bool) except +
+
+    cdef void from_cuml_rf(handle_t& handle,
+                           forest_t*,
+                           RandomForestMetaData[double, int]*,
+                           forest_params_t*,
+                           storage_type_t,
+                           bool) except +
+
+    cdef void from_cuml_rf(handle_t& handle,
+                           forest_t*,
+                           RandomForestMetaData[float, int]*,
+                           forest_params_t*,
+                           storage_type_t,
+                           bool) except +
 
 cdef class ForestInference_impl():
 
@@ -441,12 +477,13 @@ cdef class ForestInference_impl():
         forest_params.num_trees = model.n_estimators
         forest_params.num_classes = model.num_classes
 
-        from_rf[float, int](
+        from_cuml_rf(
             handle_[0],
             &self.forest_data,
             <RandomForestMetaData[float, int]*> <uintptr_t> model.rf_forest,
             &forest_params,
-            storage_type_enum
+            storage_type_enum,
+            output_class
         )
 
         return self

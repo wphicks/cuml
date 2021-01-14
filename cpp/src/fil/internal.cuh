@@ -20,6 +20,7 @@
 
 #include <cuml/cuml.hpp>
 #include <cuml/fil/fil.h>
+#include <cuml/ensemble/randomforest.hpp>
 
 namespace ML {
 namespace fil {
@@ -163,6 +164,158 @@ void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
 template <typename fil_node_t>
 void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
                  const fil_node_t* nodes, const forest_params_t* params);
+
+template <typename fil_node_t, typename T, typename L>
+void cuml_rf2fil_sparse(std::vector<int>& trees, std::vector<fil_node_t>& nodes,
+                        forest_params_t* params,
+                        const RandomForestMetaData<T, L>* forest) {
+  // TODO: tl2fil_common(params, model, tl_params);
+  // TODO: tl2fil_sparse_check_t<fil_node_t>::check(model);
+
+  trees.reserve(forest->rf_params.n_trees + trees.size());
+
+  // convert the nodes
+  for (int i = 0; i < forest->rf_params.n_trees; ++i) {
+    int root = cuml_rf2fil_sparse(nodes,
+                                  forest->trees[i],
+                                  *params);
+    trees.push_back(root);
+  }
+  params->num_nodes = nodes.size();
+}
+
+template <typename fil_node_t, typename T, typename L>
+int cuml_rf2fil_sparse(std::vector<fil_node_t>& fil_nodes,
+                       DecisionTree::TreeMetaDataNode<T, L>& tree_metadata,
+                       forest_params_t& forest_params) {
+  typedef SparseTreeNode<T, L> node_t;
+  typedef std::pair<node_t, int> pair_t;
+  std::vector<pair_t> stack;
+  stack.reserve(forest_params.depth);
+
+  int root = fil_nodes.size();
+  fil_nodes.emplace_back();
+  stack.push_back(pair_t(tree_metadata.sparsetree[0], 0));
+
+  node_t cur_node;
+  int cur;
+
+  while (!stack.empty()) {
+    std::tie(cur_node, cur) = stack.back();
+    stack.pop_back();
+    while (cur_node.colid != -1) {
+      float threshold = std::nextafter(static_cast<float>(cur_node.quesval),
+                                       std::numeric_limits<float>::infinity());
+      int left = fil_nodes.size() - root;
+      fil_nodes.emplace_back();  // Left child
+      fil_nodes.emplace_back();  // Right child
+
+      fil_nodes[root + cur] = fil_node_t(val_t{.f = 0},
+                                         threshold,
+                                         cur_node.colid,
+                                         true,
+                                         false,
+                                         left);
+      stack.push_back(pair_t(
+        tree_metadata.sparsetree[cur_node.left_child_id + 1], 
+        left + 1
+      ));
+      cur_node = tree_metadata.sparsetree[cur_node.left_child_id];
+      cur = left;
+    }
+    fil_nodes[root + cur] = fil_node_t(val_t{.f = NAN}, NAN, 0, false, true,
+                                       0);
+
+    if (forest_params.num_classes == 1) {
+      fil_nodes[root + cur].val.f = (float) cur_node.prediction;
+      break;
+    } else {
+        fil_nodes[root + cur].val.idx = cur_node.prediction;
+        break;
+    }
+  }
+  return root;
+};
+
+template <typename T, typename L>
+void from_rf(const raft::handle_t& handle, forest_t* pforest,
+             const RandomForestMetaData<T, L>* forest,
+             forest_params_t* params,
+             storage_type_t storage_type, bool output_class) {
+  // Invariants on threshold and leaf types
+  static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
+                "Model must contain float32 or float64 thresholds for splits");
+  // Display appropriate warnings when float64 values are being casted into
+  // float32, as FIL only supports inferencing with float32 for the time being
+  if (std::is_same<T, double>::value || std::is_same<L, double>::value) {
+    CUML_LOG_WARN(
+      "Casting all thresholds and leaf values to float32, as FIL currently "
+      "doesn't support inferencing models with float64 values. "
+      "This may lead to predictions with reduced accuracy.");
+  }
+
+  params->output = output_t::RAW;
+
+  if (params->num_classes > 1) {
+    params->leaf_algo = leaf_algo_t::CATEGORICAL_LEAF;
+  } else {
+    params->leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
+    if (params->num_classes <= 2 && output_class) {
+      params->output = output_t(params->output | output_t::CLASS);
+    }
+  }
+
+  // build dense trees by default
+  if (storage_type == storage_type_t::AUTO) {
+    if (params->algo == algo_t::ALGO_AUTO ||
+        params->algo == algo_t::NAIVE) {
+      // TODO
+      storage_type = storage_type_t::SPARSE;
+      /* int depth = params->depth;
+      // max 2**25 dense nodes, 256 MiB dense model size
+      const int LOG2_MAX_DENSE_NODES = 25;
+      int log2_num_dense_nodes =
+        depth + 1 + int(ceil(std::log2(forest->trees.size())));
+      storage_type = log2_num_dense_nodes > LOG2_MAX_DENSE_NODES
+                       ? storage_type_t::SPARSE
+                       : storage_type_t::DENSE; */
+    } else {
+      // only dense storage is supported for other algorithms
+      storage_type = storage_type_t::DENSE;
+    }
+  }
+
+  switch (storage_type) {
+    case storage_type_t::DENSE: {
+      /* std::vector<dense_node> nodes;
+      tl2fil_dense(&nodes, &params, model, tl_params);
+      init_dense(handle, pforest, nodes.data(), &params);
+      // sync is necessary as nodes is used in init_dense(),
+      // but destructed at the end of this function
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));*/
+      ASSERT(false, "TODO");
+      break;
+    }
+    case storage_type_t::SPARSE: {
+      std::vector<int> trees;
+      std::vector<sparse_node16> nodes;
+      cuml_rf2fil_sparse(trees, nodes, params, forest);
+      init_sparse(handle, pforest, trees.data(), nodes.data(), params);
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+      break;
+    }
+    case storage_type_t::SPARSE8: {
+      std::vector<int> trees;
+      std::vector<sparse_node8> nodes;
+      cuml_rf2fil_sparse(trees, nodes, params, forest);
+      init_sparse(handle, pforest, trees.data(), nodes.data(), params);
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+      break;
+    }
+    default:
+      ASSERT(false, "storage_type must be one of AUTO, DENSE or SPARSE");
+  }
+}
 
 }  // namespace fil
 }  // namespace ML

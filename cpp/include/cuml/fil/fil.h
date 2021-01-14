@@ -191,10 +191,30 @@ struct forest_params_t {
 void from_treelite(const raft::handle_t& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params);
 
-template <typename T, typename L>
-void from_rf(const raft::handle_t& handle, forest_t* pforest,
-             RandomForestMetaData<T, L>* forest, const forest_params_t* params,
-             storage_type_t storage_type);
+void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
+                  const RandomForestMetaData<double, double>* forest,
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class);
+void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
+                  const RandomForestMetaData<double, float>* forest,
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class);
+void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
+                  const RandomForestMetaData<float, double>* forest,
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class);
+void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
+                  const RandomForestMetaData<float, float>* forest,
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class);
+void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
+                  const RandomForestMetaData<double, int>* forest,
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class);
+void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
+                  const RandomForestMetaData<float, int>* forest,
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class);
 
 /** free deletes forest and all resources held by it; after this, forest is no longer usable
  *  @param h cuML handle used by this function

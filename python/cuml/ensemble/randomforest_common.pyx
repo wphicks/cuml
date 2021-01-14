@@ -355,7 +355,7 @@ class BaseRandomForestModel(Base):
                                           algo=algo)
         fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
                                     output_type=self.output_type)
-        fil_model.load_from_rf_model(self.handle,
+        fil_model.load_from_rf_model(self,
                                      output_class=output_class,
                                      threshold=threshold,
                                      algo=algo,
