@@ -228,10 +228,8 @@ int cuml_rf2fil_sparse(std::vector<fil_node_t>& fil_nodes,
 
     if (forest_params.num_classes == 1) {
       fil_nodes[root + cur].val.f = (float) cur_node.prediction;
-      break;
     } else {
         fil_nodes[root + cur].val.idx = cur_node.prediction;
-        break;
     }
   }
   return root;
@@ -256,14 +254,16 @@ void from_rf(const raft::handle_t& handle, forest_t* pforest,
 
   params->output = output_t::RAW;
 
-  if (params->num_classes > 1) {
+  /* if (params->num_classes > 1) {
     params->leaf_algo = leaf_algo_t::CATEGORICAL_LEAF;
   } else {
     params->leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
     if (params->num_classes <= 2 && output_class) {
       params->output = output_t(params->output | output_t::CLASS);
     }
-  }
+  } */
+  params->leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY; // TODO
+  params->output = output_t::AVG_CLASS; // TODO
 
   // build dense trees by default
   if (storage_type == storage_type_t::AUTO) {

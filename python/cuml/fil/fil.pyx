@@ -33,7 +33,8 @@ from libc.stdlib cimport calloc, malloc, free
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.ensemble.randomforest_shared cimport RandomForestMetaData
+from cuml.ensemble.randomforest_shared cimport RandomForestMetaData, \
+                                               CLASSIFICATION
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
 
@@ -475,7 +476,13 @@ cdef class ForestInference_impl():
         forest_params.blocks_per_sm = blocks_per_sm
         forest_params.depth = model.max_depth
         forest_params.num_trees = model.n_estimators
-        forest_params.num_classes = model.num_classes
+        # if model.RF_type == CLASSIFICATION:
+        #     forest_params.num_classes = model.num_classes
+        # else:
+        #     forest_params.num_classes = model.n_cols
+        forest_params.num_cols = 20  # TODO
+        forest_params.global_bias = 0  # TODO
+        forest_params.num_classes = 2  # TODO
 
         from_cuml_rf(
             handle_[0],
