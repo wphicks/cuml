@@ -28,10 +28,10 @@
 #include <utility>
 
 #include <cuml/fil/fil.h>
+#include <cuml/tree/flatnode.h>
 #include <raft/cudart_utils.h>
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/ensemble/randomforest.hpp>
-#include <cuml/tree/flatnode.h>
 #include "common.cuh"
 #include "internal.cuh"
 
@@ -571,8 +571,8 @@ int tree2fil_sparse(std::vector<fil_node_t>* pnodes, const tl::Tree<T, L>& tree,
       // tl_left and tl_right are indices of the children in the treelite tree
       // (stored  as an array of nodes)
       int tl_left = tree.LeftChild(node_id),
-          tl_right = tree.RightChild(node_id); // WH: Replace TL accessor
-      bool default_left = tree.DefaultLeft(node_id); // WH: Replace TL accessor
+          tl_right = tree.RightChild(node_id);        // WH: Replace TL accessor
+      bool default_left = tree.DefaultLeft(node_id);  // WH: Replace TL accessor
       float threshold = static_cast<float>(tree.Threshold(node_id));
       adjust_threshold(&threshold, &tl_left, &tl_right, &default_left,
                        tree.ComparisonOp(node_id));
@@ -890,38 +890,38 @@ void predict(const raft::handle_t& h, forest_t f, float* preds,
 
 void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
                   const RandomForestMetaData<double, double>* forest,
-                  forest_params_t* params, storage_type_t storage_type, bool
-                  output_class){
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class) {
   from_rf(handle, pforest, forest, params, storage_type, output_class);
 }
 void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
                   const RandomForestMetaData<double, float>* forest,
-                  forest_params_t* params, storage_type_t storage_type, bool
-                  output_class) {
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class) {
   from_rf(handle, pforest, forest, params, storage_type, output_class);
 }
 void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
                   const RandomForestMetaData<float, double>* forest,
-                  forest_params_t* params, storage_type_t storage_type, bool
-                  output_class) {
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class) {
   from_rf(handle, pforest, forest, params, storage_type, output_class);
 }
 void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
                   const RandomForestMetaData<float, float>* forest,
-                  forest_params_t* params, storage_type_t storage_type, bool
-                  output_class) {
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class) {
   from_rf(handle, pforest, forest, params, storage_type, output_class);
 }
 void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
                   const RandomForestMetaData<double, int>* forest,
-                  forest_params_t* params, storage_type_t storage_type, bool
-                  output_class) {
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class) {
   from_rf(handle, pforest, forest, params, storage_type, output_class);
 }
 void from_cuml_rf(const raft::handle_t& handle, forest_t* pforest,
                   const RandomForestMetaData<float, int>* forest,
-                  forest_params_t* params, storage_type_t storage_type, bool
-                  output_class) {
+                  forest_params_t* params, storage_type_t storage_type,
+                  bool output_class) {
   from_rf(handle, pforest, forest, params, storage_type, output_class);
 }
 

@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
 #include <cuml/fil/fil.h>
+#include <cuml/cuml.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 
 namespace ML {
@@ -176,9 +176,7 @@ void cuml_rf2fil_sparse(std::vector<int>& trees, std::vector<fil_node_t>& nodes,
 
   // convert the nodes
   for (int i = 0; i < forest->rf_params.n_trees; ++i) {
-    int root = cuml_rf2fil_sparse(nodes,
-                                  forest->trees[i],
-                                  *params);
+    int root = cuml_rf2fil_sparse(nodes, forest->trees[i], *params);
     trees.push_back(root);
   }
   params->num_nodes = nodes.size();
@@ -210,26 +208,19 @@ int cuml_rf2fil_sparse(std::vector<fil_node_t>& fil_nodes,
       fil_nodes.emplace_back();  // Left child
       fil_nodes.emplace_back();  // Right child
 
-      fil_nodes[root + cur] = fil_node_t(val_t{.f = 0},
-                                         threshold,
-                                         cur_node.colid,
-                                         true,
-                                         false,
-                                         left);
-      stack.push_back(pair_t(
-        tree_metadata.sparsetree[cur_node.left_child_id + 1], 
-        left + 1
-      ));
+      fil_nodes[root + cur] =
+        fil_node_t(val_t{.f = 0}, threshold, cur_node.colid, true, false, left);
+      stack.push_back(
+        pair_t(tree_metadata.sparsetree[cur_node.left_child_id + 1], left + 1));
       cur_node = tree_metadata.sparsetree[cur_node.left_child_id];
       cur = left;
     }
-    fil_nodes[root + cur] = fil_node_t(val_t{.f = NAN}, NAN, 0, false, true,
-                                       0);
+    fil_nodes[root + cur] = fil_node_t(val_t{.f = NAN}, NAN, 0, false, true, 0);
 
     if (forest_params.num_classes == 1) {
-      fil_nodes[root + cur].val.f = (float) cur_node.prediction;
+      fil_nodes[root + cur].val.f = (float)cur_node.prediction;
     } else {
-        fil_nodes[root + cur].val.idx = cur_node.prediction;
+      fil_nodes[root + cur].val.idx = cur_node.prediction;
     }
   }
   return root;
@@ -237,8 +228,7 @@ int cuml_rf2fil_sparse(std::vector<fil_node_t>& fil_nodes,
 
 template <typename T, typename L>
 void from_rf(const raft::handle_t& handle, forest_t* pforest,
-             const RandomForestMetaData<T, L>* forest,
-             forest_params_t* params,
+             const RandomForestMetaData<T, L>* forest, forest_params_t* params,
              storage_type_t storage_type, bool output_class) {
   // Invariants on threshold and leaf types
   static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
@@ -262,13 +252,12 @@ void from_rf(const raft::handle_t& handle, forest_t* pforest,
       params->output = output_t(params->output | output_t::CLASS);
     }
   } */
-  params->leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY; // TODO
-  params->output = output_t::AVG_CLASS; // TODO
+  params->leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;  // TODO
+  params->output = output_t::AVG_CLASS;                 // TODO
 
   // build dense trees by default
   if (storage_type == storage_type_t::AUTO) {
-    if (params->algo == algo_t::ALGO_AUTO ||
-        params->algo == algo_t::NAIVE) {
+    if (params->algo == algo_t::ALGO_AUTO || params->algo == algo_t::NAIVE) {
       // TODO
       storage_type = storage_type_t::SPARSE;
       /* int depth = params->depth;
