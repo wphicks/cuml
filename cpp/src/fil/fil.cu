@@ -754,7 +754,6 @@ template <typename fil_node_t, typename T, typename L>
 void tl2fil_sparse(std::vector<int>* ptrees, fil_node_t** pnodes,
                    forest_params_t* params, const tl::ModelImpl<T, L>& model,
                    const treelite_params_t* tl_params) {
-  double t_start = omp_get_wtime();
   tl2fil_common(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
 
@@ -789,8 +788,6 @@ void tl2fil_sparse(std::vector<int>* ptrees, fil_node_t** pnodes,
 
   //params->num_nodes = pnodes->size();
   params->num_nodes = total_nodes;
-  double t_end = omp_get_wtime();
-  printf("TL->FIL time: %lf s\n", t_end - t_start);
 }
 
 void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
@@ -825,6 +822,7 @@ template <typename T, typename L>
 void from_treelite(const raft::handle_t& handle, forest_t* pforest,
                    const tl::ModelImpl<T, L>& model,
                    const treelite_params_t* tl_params) {
+  double t_start = omp_get_wtime();
   // Invariants on threshold and leaf types
   static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
                 "Model must contain float32 or float64 thresholds for splits");
@@ -894,6 +892,8 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
     default:
       ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
   }
+  double t_end = omp_get_wtime();
+  printf("TL->FIL time: %lf s\n", t_end - t_start);  
 }
 
 void from_treelite(const raft::handle_t& handle, forest_t* pforest,
