@@ -16,6 +16,7 @@
 
 /** @file fil.cu implements forest inference */
 
+#include <omp.h>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
@@ -434,9 +435,14 @@ inline int max_depth(const tl::Tree<T, L>& tree) {
 template <typename T, typename L>
 int max_depth(const tl::ModelImpl<T, L>& model) {
   int depth = 0;
-  for (const auto& tree : model.trees) {
+  //for (const auto& tree : model.trees) {
+  const auto& trees = model.trees;
+  #pragma omp parallel for reduction(max:depth)
+  for (size_t i = 0; i < trees.size(); ++i) {
+    const auto& tree = trees[i];
     depth = std::max(depth, max_depth(tree));
   }
+  //printf("max_depth = %d\n", depth);
   return depth;
 }
 
@@ -745,13 +751,16 @@ struct tl2fil_sparse_check_t<sparse_node8> {
 // uses treelite model with additional tl_params to initialize FIL params,
 // trees (stored in *ptrees) and sparse nodes (stored in *pnodes)
 template <typename fil_node_t, typename T, typename L>
-void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
+void tl2fil_sparse(std::vector<int>* ptrees, fil_node_t** pnodes,
                    forest_params_t* params, const tl::ModelImpl<T, L>& model,
                    const treelite_params_t* tl_params) {
+  double t_start = omp_get_wtime();
   tl2fil_common(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
 
   size_t num_trees = model.trees.size();
+
+  printf("num_trees = %zd\n", num_trees);
 
   ptrees->reserve(num_trees);
   ptrees->push_back(0);
@@ -759,22 +768,29 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
     ptrees->push_back(model.trees[i].num_nodes + (*ptrees)[i]);
   }
   size_t total_nodes = ptrees->back() + model.trees.back().num_nodes;
+  printf("num_nodes = %zd\n", total_nodes);
 
-  pnodes->reserve(total_nodes);
-  for (size_t i = 0; i < total_nodes; ++i) {
-    // TODO
-    pnodes->emplace_back();
-  }
+  // pnodes->reserve(total_nodes);
+  // for (size_t i = 0; i < total_nodes; ++i) {
+  //   // TODO
+  //   pnodes->emplace_back();
+  // }
+  //pnodes->resize(total_nodes);
+  *pnodes = (fil_node_t*)malloc(total_nodes * sizeof(fil_node_t));
 
   // convert the nodes
-  fil_node_t* front = pnodes->data();
-#pragma omp parallel for num_threads(16)
+  //fil_node_t* front = pnodes->data();
+  fil_node_t* front = *pnodes;
+  #pragma omp parallel for
   for (int i = 0; i < num_trees; ++i) {
     tree2fil_sparse(front + (*ptrees)[i], (*ptrees)[i], model.trees[i],
                     *params);
   }
 
-  params->num_nodes = pnodes->size();
+  //params->num_nodes = pnodes->size();
+  params->num_nodes = total_nodes;
+  double t_end = omp_get_wtime();
+  printf("TL->FIL time: %lf s\n", t_end - t_start);
 }
 
 void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
@@ -855,18 +871,24 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
     }
     case storage_type_t::SPARSE: {
       std::vector<int> trees;
-      std::vector<sparse_node16> nodes;
+      //std::vector<sparse_node16> nodes;
+      sparse_node16* nodes = nullptr;
       tl2fil_sparse(&trees, &nodes, &params, model, tl_params);
-      init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
+      //init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
+      init_sparse(handle, pforest, trees.data(), nodes, &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+      ::free(nodes);
       break;
     }
     case storage_type_t::SPARSE8: {
       std::vector<int> trees;
-      std::vector<sparse_node8> nodes;
+      //std::vector<sparse_node8> nodes;
+      sparse_node8* nodes = nullptr;
       tl2fil_sparse(&trees, &nodes, &params, model, tl_params);
-      init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
+      //init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
+      init_sparse(handle, pforest, trees.data(), nodes, &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+      ::free(nodes);
       break;
     }
     default:
@@ -890,7 +912,12 @@ void free(const raft::handle_t& h, forest_t f) {
 
 void predict(const raft::handle_t& h, forest_t f, float* preds,
              const float* data, size_t num_rows, bool predict_proba) {
+  CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
+  double t_start = omp_get_wtime();
   f->predict(h, preds, data, num_rows, predict_proba);
+  CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
+  double t_end = omp_get_wtime();
+  printf("predict time: %lf s\n", t_end - t_start);
 }
 
 }  // namespace fil

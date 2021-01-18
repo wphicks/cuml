@@ -83,7 +83,8 @@ struct base_node {
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
-  __host__ __device__ base_node() : val({.f = 0}), bits(0){};
+  //__host__ __device__ base_node() : val({.f = 0}), bits(0){};
+  base_node() = default;
   base_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf) {
     bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
            (is_leaf ? IS_LEAF_MASK : 0);
@@ -107,7 +108,8 @@ struct alignas(8) dense_node : base_node {
 struct alignas(16) sparse_node16 : base_node {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
-  __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
+  //__host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
+  sparse_node16() = default;
   sparse_node16(val_t output, float thresh, int fid, bool def_left,
                 bool is_leaf, int left_index)
     : base_node(output, thresh, fid, def_left, is_leaf),

@@ -311,6 +311,7 @@ template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features, int task_category) {
+  double t_start = omp_get_wtime();
   // Non-zero value here for random forest models.
   // The value should be set to 0 if the model is gradient boosted trees.
   int random_forest_flag = 1;
@@ -336,8 +337,9 @@ void build_treelite_forest(ModelHandle* model,
   }
 
   int n_streams = forest->rf_params.n_streams;
+  printf("n_streams =  %d\n", n_streams);
 
-#pragma omp parallel for num_threads(n_streams)
+  #pragma omp parallel for
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
     TreeBuilderHandle tree_builder;
@@ -356,6 +358,8 @@ void build_treelite_forest(ModelHandle* model,
 
   TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
   TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
+  double t_end = omp_get_wtime();
+  printf("RF->TL time: %lf s\n", t_end - t_start);
 }
 
 /**
