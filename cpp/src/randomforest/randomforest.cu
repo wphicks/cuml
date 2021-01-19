@@ -165,6 +165,7 @@ void set_rf_params(RF_params& params, int cfg_n_trees, bool cfg_bootstrap,
   params.max_samples = cfg_max_samples;
   params.seed = cfg_seed;
   params.n_streams = min(cfg_n_streams, omp_get_max_threads());
+  //params.n_streams = cfg_n_streams;
   if (params.n_streams == cfg_n_streams) {
     CUML_LOG_WARN("Warning! Max setting Max streams to max openmp threads %d",
                   omp_get_max_threads());
@@ -315,49 +316,70 @@ void build_treelite_forest(ModelHandle* model,
   // Non-zero value here for random forest models.
   // The value should be set to 0 if the model is gradient boosted trees.
   int random_forest_flag = 1;
-  ModelBuilderHandle model_builder;
+  //ModelBuilderHandle model_builder;
+  typedef tl::ModelImpl<T, T> ModelImplT;
+  //ModelImplT* p_model = new ModelImplT;
+  auto unique_model = tl::Model::Create<T, T>();
+  ModelImplT* p_model = (ModelImplT*)unique_model.get();
   // num_class is 1 for binary classification and regression
   // num_class is #class for multiclass classification which is the same as task_category
   int num_class = task_category > 2 ? task_category : 1;
 
-  const char* leaf_type = DecisionTree::TreeliteType<L>::value;
-  if (std::is_same<L, int>::value) {
-    // Treelite codegen doesn't yet support integer leaf output
-    leaf_type = DecisionTree::TreeliteType<float>::value;
-  }
+  // const char* leaf_type = DecisionTree::TreeliteType<L>::value;
+  // if (std::is_same<L, int>::value) {
+  //   // Treelite codegen doesn't yet support integer leaf output
+  //   leaf_type = DecisionTree::TreeliteType<float>::value;
+  // }
 
-  TREELITE_CHECK(TreeliteCreateModelBuilder(
-    num_features, num_class, random_forest_flag,
-    DecisionTree::TreeliteType<T>::value, leaf_type, &model_builder));
+  // TREELITE_CHECK(TreeliteCreateModelBuilder(
+  //   num_features, num_class, random_forest_flag,
+  //   DecisionTree::TreeliteType<T>::value, leaf_type, &model_builder));
+  p_model->num_feature = num_features;
+  p_model->task_type = tl::TaskType::kBinaryClfRegr;
+  p_model->average_tree_output = random_forest_flag;
+  p_model->task_param = tl::TaskParameter{
+    tl::TaskParameter::OutputType::kFloat, false, num_class, 1
+  };
+  
 
-  if (task_category > 2) {
-    // Multi-class classification
-    TREELITE_CHECK(TreeliteModelBuilderSetModelParam(
-      model_builder, "pred_transform", "max_index"));
-  }
+  // if (task_category > 2) {
+  //   // Multi-class classification
+  //   TREELITE_CHECK(TreeliteModelBuilderSetModelParam(
+  //     model_builder, "pred_transform", "max_index"));
+  // }
 
   int n_streams = forest->rf_params.n_streams;
   printf("n_streams =  %d\n", n_streams);
 
+  p_model->SetTreeLimit(forest->rf_params.n_trees);
+
   #pragma omp parallel for
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
+    //printf("tree_id = %d\n", i);
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];
-    TreeBuilderHandle tree_builder;
+    //TreeBuilderHandle tree_builder;
 
-    TREELITE_CHECK(TreeliteCreateTreeBuilder(
-      DecisionTree::TreeliteType<T>::value, leaf_type, &tree_builder));
+    // TREELITE_CHECK(TreeliteCreateTreeBuilder(
+    //   DecisionTree::TreeliteType<T>::value, leaf_type, &tree_builder));
+    typedef tl::Tree<T, T> TLTreeT;
+    TLTreeT* p_tree = &p_model->trees[i];
+    //TLTreeT* p_tree = p_model->trees.data() + i;
     if (tree_ptr->sparsetree.size() != 0) {
-      DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
-                                              num_class);
+      // DecisionTree::build_treelite_tree<T, L>(tree_builder, tree_ptr,
+      //                                         num_class);
+      DecisionTree::build_treelite_tree<T, L, TLTreeT>(p_tree, tree_ptr,
+                                                       num_class);
 
       // The third argument -1 means append to the end of the tree list.
-      TREELITE_CHECK(
-        TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
+      // TREELITE_CHECK(
+      //   TreeliteModelBuilderInsertTree(model_builder, tree_builder, -1));
     }
   }
 
-  TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
-  TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
+  //TREELITE_CHECK(TreeliteModelBuilderCommitModel(model_builder, model));
+  //TREELITE_CHECK(TreeliteDeleteModelBuilder(model_builder));
+  //*model = p_model;
+  *model = static_cast<ModelHandle>(unique_model.release());
   double t_end = omp_get_wtime();
   printf("RF->TL time: %lf s\n", t_end - t_start);
 }

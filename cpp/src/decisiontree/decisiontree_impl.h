@@ -18,6 +18,7 @@
 #include <common/Timer.h>
 #include <cuml/tree/algo_helper.h>
 #include <treelite/c_api.h>
+#include <treelite/tree.h>
 #include <algorithm>
 #include <climits>
 #include <common/cumlHandle.hpp>
@@ -54,8 +55,8 @@ std::string get_node_json(const std::string &prefix,
                           const std::vector<SparseTreeNode<T, L>> &sparsetree,
                           int idx);
 
-template <class T, class L>
-void build_treelite_tree(TreeBuilderHandle tree_builder,
+template <class T, class L, class TLTree>
+void build_treelite_tree(TLTree* p_tree,
                          DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
                          int num_class);
 
