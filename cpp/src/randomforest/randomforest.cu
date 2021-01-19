@@ -337,10 +337,8 @@ void build_treelite_forest(ModelHandle* model,
   p_model->num_feature = num_features;
   p_model->task_type = tl::TaskType::kBinaryClfRegr;
   p_model->average_tree_output = random_forest_flag;
-  p_model->task_param = tl::TaskParameter{
-    tl::TaskParameter::OutputType::kFloat, false, num_class, 1
-  };
-  
+  p_model->task_param = tl::TaskParameter{tl::TaskParameter::OutputType::kFloat,
+                                          false, num_class, 1};
 
   // if (task_category > 2) {
   //   // Multi-class classification
@@ -353,7 +351,7 @@ void build_treelite_forest(ModelHandle* model,
 
   p_model->SetTreeLimit(forest->rf_params.n_trees);
 
-  #pragma omp parallel for
+#pragma omp parallel for
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     //printf("tree_id = %d\n", i);
     DecisionTree::TreeMetaDataNode<T, L>* tree_ptr = &forest->trees[i];

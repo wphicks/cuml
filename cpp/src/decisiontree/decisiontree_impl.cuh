@@ -145,10 +145,10 @@ struct Node_ID_info {
 };
 
 template <class T, class L, class TLTree>
-void build_treelite_tree(TLTree* p_tree,
+void build_treelite_tree(TLTree *p_tree,
                          DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
                          int num_class) {
-  TLTree& tl_tree = *p_tree;
+  TLTree &tl_tree = *p_tree;
   //int node_id = 0;
   //TREELITE_CHECK(TreeliteTreeBuilderCreateNode(tree_builder, node_id));
   tl_tree.Init();
@@ -174,7 +174,7 @@ void build_treelite_tree(TLTree* p_tree,
       if (!is_leaf_node) {
         // Add children to the current node.
         tl_tree.AddChilds(node_id);
-        
+
         // Push left child to next_level queue.
         int tl_left = tl_tree.LeftChild(node_id);
         // next_level_queue.push(Node_ID_info<T, L>(
@@ -202,8 +202,8 @@ void build_treelite_tree(TLTree* p_tree,
         //   "<=", threshold, 1, node_id + 1, node_id + 2));
         // TREELITE_CHECK(TreeliteTreeBuilderDeleteValue(threshold));
 
-        tl_tree.SetNumericalSplit(node_id, q_node.node.colid, q_node.node.quesval,
-                                  true, tl::Operator::kLE);
+        tl_tree.SetNumericalSplit(node_id, q_node.node.colid,
+                                  q_node.node.quesval, true, tl::Operator::kLE);
 
         //node_id += 2;
       } else {
@@ -572,17 +572,17 @@ template class DecisionTreeClassifier<double>;
 template class DecisionTreeRegressor<float>;
 template class DecisionTreeRegressor<double>;
 
-template void build_treelite_tree<float, int, tl::Tree<float, float>>
-(tl::Tree<float, float>* p_tree, 
+template void build_treelite_tree<float, int, tl::Tree<float, float>>(
+  tl::Tree<float, float> *p_tree,
   DecisionTree::TreeMetaDataNode<float, int> *tree_ptr, int num_class);
-template void build_treelite_tree<double, int, tl::Tree<double, double>>
-(tl::Tree<double, double>* p_tree,
+template void build_treelite_tree<double, int, tl::Tree<double, double>>(
+  tl::Tree<double, double> *p_tree,
   DecisionTree::TreeMetaDataNode<double, int> *tree_ptr, int num_class);
-template void build_treelite_tree<float, float, tl::Tree<float, float>>
-(tl::Tree<float, float>* p_tree,
+template void build_treelite_tree<float, float, tl::Tree<float, float>>(
+  tl::Tree<float, float> *p_tree,
   DecisionTree::TreeMetaDataNode<float, float> *tree_ptr, int num_class);
-template void build_treelite_tree<double, double, tl::Tree<double, double>>
-( tl::Tree<double, double>* p_tree,
+template void build_treelite_tree<double, double, tl::Tree<double, double>>(
+  tl::Tree<double, double> *p_tree,
   DecisionTree::TreeMetaDataNode<double, double> *tree_ptr, int num_class);
 }  //End namespace DecisionTree
 

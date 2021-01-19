@@ -56,7 +56,7 @@ std::string get_node_json(const std::string &prefix,
                           int idx);
 
 template <class T, class L, class TLTree>
-void build_treelite_tree(TLTree* p_tree,
+void build_treelite_tree(TLTree *p_tree,
                          DecisionTree::TreeMetaDataNode<T, L> *tree_ptr,
                          int num_class);
 

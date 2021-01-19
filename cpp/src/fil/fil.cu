@@ -437,7 +437,7 @@ int max_depth(const tl::ModelImpl<T, L>& model) {
   int depth = 0;
   //for (const auto& tree : model.trees) {
   const auto& trees = model.trees;
-  #pragma omp parallel for reduction(max:depth)
+#pragma omp parallel for reduction(max : depth)
   for (size_t i = 0; i < trees.size(); ++i) {
     const auto& tree = trees[i];
     depth = std::max(depth, max_depth(tree));
@@ -780,7 +780,7 @@ void tl2fil_sparse(std::vector<int>* ptrees, fil_node_t** pnodes,
   // convert the nodes
   //fil_node_t* front = pnodes->data();
   fil_node_t* front = *pnodes;
-  #pragma omp parallel for
+#pragma omp parallel for
   for (int i = 0; i < num_trees; ++i) {
     tree2fil_sparse(front + (*ptrees)[i], (*ptrees)[i], model.trees[i],
                     *params);
@@ -893,7 +893,7 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
   }
   double t_end = omp_get_wtime();
-  printf("TL->FIL time: %lf s\n", t_end - t_start);  
+  printf("TL->FIL time: %lf s\n", t_end - t_start);
 }
 
 void from_treelite(const raft::handle_t& handle, forest_t* pforest,
