@@ -202,10 +202,14 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
 # append additional directories to CMAKE_MODULE_PATH if we need other modules here
 
+# External libraries can call find_package(OpenMP) so do not rely on OpenMP_FOUND
+set(USE_OPENMP OFF)
+
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
   if(OpenMP_FOUND)
     message(STATUS "OpenMP found in ${OPENMP_INCLUDE_DIRS}")
+    set(USE_OPENMP ON)
   endif(OpenMP_FOUND)
 endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
@@ -239,12 +243,12 @@ else()
   set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
 endif(CMAKE_CUDA_HOST_COMPILER)
 
-if(OpenMP_FOUND)
+if(USE_OPENMP)
   message(STATUS "Building with OpenMP support")
   find_package(Threads REQUIRED)
   # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
   # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-endif(OpenMP_FOUND)
+endif(USE_OPENMP)
 
 # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
 
@@ -287,10 +291,8 @@ endif()
 # CUDA 11 onwards cub ships with CTK
 if((CUDAToolkit_VERSION_MAJOR EQUAL 11) OR (CUDAToolkit_VERSION_MAJOR GREATER 11))
   set(CUB_IS_PART_OF_CTK ON)
-  message("CUB In CUDA")
 else()
   set(CUB_IS_PART_OF_CTK OFF)
-  message("CUB Not In CUDA. CUDA VERSION ${CUDAToolkit_VERSION_MAJOR}")
 endif()
 
 if("${GPU_ARCHS}" STREQUAL "ALL")
@@ -529,7 +531,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       FAISS::FAISS
       treelite::treelite
       treelite::treelite_runtime
-      $<$<BOOL:OpenMP_FOUND>:OpenMP::OpenMP_CXX>
+      $<$<BOOL:USE_OPENMP>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
       $<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:cumlprims_mg::cumlprims_mg>
