@@ -26,9 +26,9 @@ extern "C" {
 namespace ML {
 
 /**
- * @brief Flat C API function to perform a brute force knn on
- * a series of input arrays and combine the results into a single
- * output array for indexes and distances.
+ * @brief Flat C API function to perform a brute force knn on a series of input
+ * arrays and combine the results into a single output array for indexes and
+ * distances.
  *
  * @param[in] handle the cuml handle to use
  * @param[in] input an array of pointers to the input arrays
@@ -42,6 +42,12 @@ namespace ML {
  * @param[in] k the number of nearest neighbors to return
  * @param[in] rowMajorIndex is the index array in row major layout?
  * @param[in] rowMajorQuery is the query array in row major layout?
+ * @param[in] metric_type distance metric to use. Specify the metric using the
+ *    integer value of the enum `ML::MetricType`.
+ * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
+ *    is ignored if the metric_type is not Minkowski.
+ * @param[in] expanded should lp-based distances be returned in their expanded
+ *    form (e.g., without raising to the 1/p power).
  */
 cumlError_t knn_search(const cumlHandle_t handle, float **input, int *sizes,
                        int n_params, int D, float *search_items, int n,
@@ -51,6 +57,8 @@ cumlError_t knn_search(const cumlHandle_t handle, float **input, int *sizes,
   cumlError_t status;
   raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+  raft::distance::DistanceType metric_distance_type =
+    static_cast<raft::distance::DistanceType>(metric_type);
 
   std::vector<cudaStream_t> int_streams = handle_ptr->get_internal_streams();
 
@@ -65,7 +73,7 @@ cumlError_t knn_search(const cumlHandle_t handle, float **input, int *sizes,
     try {
       ML::brute_force_knn(*handle_ptr, input_vec, sizes_vec, D, search_items, n,
                           res_I, res_D, k, rowMajorIndex, rowMajorQuery,
-                          (ML::MetricType)metric_type, metric_arg, expanded);
+                          metric_distance_type, metric_arg);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }

@@ -15,6 +15,7 @@
 #
 
 import pytest
+import math
 
 from cuml.test.utils import array_equal, unit_param, quality_param, \
     stress_param
@@ -22,6 +23,8 @@ from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
 from cuml.datasets import make_blobs
+
+from sklearn.metrics import pairwise_distances
 
 from cuml.common import logger
 
@@ -56,7 +59,9 @@ def valid_metrics(algo="brute", cuml_algo=None):
     cuml_algo = algo if cuml_algo is None else cuml_algo
     cuml_metrics = cuml.neighbors.VALID_METRICS[cuml_algo]
     sklearn_metrics = sklearn.neighbors.VALID_METRICS[algo]
-    return [value for value in cuml_metrics if value in sklearn_metrics]
+    ret = [value for value in cuml_metrics if value in sklearn_metrics]
+    ret.remove("haversine")  # This is tested on its own
+    return ret
 
 
 def valid_metrics_sparse(algo="brute", cuml_algo=None):
@@ -156,8 +161,10 @@ def test_self_neighboring(datatype, metric_p, nrows):
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
     if algo == "ivfpq":
-        pytest.xfail("""See Memory access error in IVFPQ :
-                        https://github.com/rapidsai/cuml/issues/3318""")
+        pytest.xfail("Warning: IVFPQ might be unstable in this "
+                     "version of cuML. This is due to a known issue "
+                     "in the FAISS release that this cuML version "
+                     "is linked to. (see FAISS issue #1421)")
 
     if not has_scipy():
         pytest.skip('Skipping test_neighborhood_predictions because ' +
@@ -220,11 +227,14 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
 @pytest.mark.parametrize("nrows", [4000])
 @pytest.mark.parametrize("ncols", [128, 512])
 @pytest.mark.parametrize("n_neighbors", [8])
-@pytest.mark.xfail
-#  See Memory access error in IVFPQ :
-#  https://github.com/rapidsai/cuml/issues/3318
 def test_ivfpq_pred(nrows, ncols, n_neighbors,
                     nlist, M, n_bits, usePrecomputedTables):
+
+    pytest.xfail("Warning: IVFPQ might be unstable in this "
+                 "version of cuML. This is due to a known issue "
+                 "in the FAISS release that this cuML version "
+                 "is linked to. (see FAISS issue #1421)")
+
     algo_params = {
         'nlist': nlist,
         'nprobe': int(nlist * 0.2),
@@ -542,3 +552,50 @@ def test_nearest_neighbors_sparse(metric,
         # (.5% in this case) to allow differences from non-determinism.
         diffs = abs(cuI - skI)
         assert (len(diffs[diffs > 0]) / len(np.ravel(skI))) <= 0.005
+
+
+@pytest.mark.parametrize("n_neighbors", [1, 5, 6])
+def test_haversine(n_neighbors):
+
+    hoboken_nj = [40.745255, -74.034775]
+    port_hueneme_ca = [34.155834, -119.202789]
+    auburn_ny = [42.933334, -76.566666]
+    league_city_tx = [29.499722, -95.089722]
+    tallahassee_fl = [30.455000, -84.253334]
+    aurora_il = [41.763889, -88.29001]
+
+    data = np.array([hoboken_nj,
+                     port_hueneme_ca,
+                     auburn_ny,
+                     league_city_tx,
+                     tallahassee_fl,
+                     aurora_il])
+
+    data = data * math.pi / 180
+
+    pw_dists = pairwise_distances(data, metric='haversine')
+
+    cunn = cuKNN(metric='haversine',
+                 n_neighbors=n_neighbors,
+                 algorithm='brute')
+
+    dists, inds = cunn.fit(data).kneighbors(data)
+
+    argsort = np.argsort(pw_dists, axis=1)
+
+    for i in range(pw_dists.shape[0]):
+        cpu_ordered = pw_dists[i, argsort[i]]
+        cp.testing.assert_allclose(cpu_ordered[:n_neighbors], dists[i],
+                                   atol=1e-4, rtol=1e-4)
+
+
+@pytest.mark.xfail(raises=RuntimeError)
+def test_haversine_fails_high_dimensions():
+
+    data = np.array([[0., 1., 2.], [3., 4., 5.]])
+
+    cunn = cuKNN(metric='haversine',
+                 n_neighbors=2,
+                 algorithm='brute')
+
+    cunn.fit(data).kneighbors(data)
