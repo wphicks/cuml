@@ -239,44 +239,15 @@ if(CMAKE_CUDA_HOST_COMPILER)
   endif(NOT CMAKE_CUDA_HOST_COMPILER STREQUAL CMAKE_CXX_COMPILER)
 else()
   # No attempt to set CMAKE_CUDA_HOST_COMPILER has been made. Make sure CMAKE_CXX_COMPILER is used as CUDA host compiler.
-  # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -ccbin ${CMAKE_CXX_COMPILER}")
   set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
 endif(CMAKE_CUDA_HOST_COMPILER)
 
 if(USE_OPENMP)
   message(STATUS "Building with OpenMP support")
   find_package(Threads REQUIRED)
-  # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
-  # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif(USE_OPENMP)
 
-# set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
 
-# if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-#   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++14")
-# endif(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-
-# if(LINE_INFO)
-#   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
-# endif(LINE_INFO)
-
-# if(KERNEL_INFO)
-#   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-v")
-# endif(KERNEL_INFO)
-
-# if(NVTX)
-#   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNVTX_ENABLED")
-#   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNVTX_ENABLED")
-#   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}")
-# endif(NVTX)
-
-# if(CMAKE_BUILD_TYPE MATCHES Debug)
-#   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -g")
-#   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
-# endif()
-
-# todo: change for FindCUDAToolkit when CMake 3.17 is the minimum required
-# https://github.com/rapidsai/cuml/issues/2194
 find_package(CUDAToolkit 10.0 REQUIRED)
 
 # Set the -isystem flag to not have an '=' sign to allow parsing of compile_commands.json
@@ -311,19 +282,14 @@ endif()
 message("-- Building for GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
-  # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
   set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${arch},code=sm_${arch}")
 endforeach()
 
 list(GET GPU_ARCHS -1 ptx)
-# set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 set(FAISS_GPU_ARCHS "${FAISS_GPU_ARCHS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 
 # Clear any existing value in CMAKE_CUDA_ARCHITECTURES
 set(CMAKE_CUDA_ARCHITECTURES "${GPU_ARCHS}")
-
-# set(CMAKE_CUDA_FLAGS
-#   "${CMAKE_CUDA_FLAGS} -Xcudafe --diag_suppress=unrecognized_gcc_pragma")
 
 # Now that CUDA is configured. Enable the language
 enable_language(CUDA)
@@ -338,7 +304,6 @@ include(cmake/Dependencies.cmake)
 
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
-  # ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${CUTLASS_DIR}/src/cutlass
   ${SPDLOG_DIR}/src/spdlog/include
   ${FAISS_INCLUDE_DIRS}
@@ -354,20 +319,6 @@ if(NOT CUB_IS_PART_OF_CTK)
   list(APPEND CUML_INCLUDE_DIRECTORIES ${CUB_DIR}/src/cub)
 endif(NOT CUB_IS_PART_OF_CTK)
 
-# set(CUML_PUBLIC_LINK_LIBRARIES
-#   CUDA::cublas
-#   CUDA::curand
-#   CUDA::cusolver
-#   CUDA::cudart
-#   CUDA::cusparse
-# )
-
-
-# set(CUML_PRIVATE_LINK_LIBRARIES
-#   FAISS::FAISS
-#   treelite::treelite
-#   treelite::treelite_runtime
-#   )
 
 # TODO: WH
 if(BUILD_STATIC_FAISS)
@@ -376,30 +327,6 @@ if(BUILD_STATIC_FAISS)
    ${BLAS_LIBRARIES}
   )
 endif(BUILD_STATIC_FAISS)
-
-if(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
-	list(APPEND CUML_INCLUDE_DIRECTORIES
-		${NCCL_INCLUDE_DIRS})
-
-# 	list(APPEND CUML_PRIVATE_LINK_LIBRARIES
-# 		NCCL::NCCL)
-# endif(BUILD_CUML_STD_COMMS OR BUILD_CUML_MPI_COMMS)
-
-# if(BUILD_CUML_MPI_COMMS)
-# 	list(APPEND CUML_INCLUDE_DIRECTORIES
-#         ${MPI_CXX_INCLUDE_PATH})
-
-#     list(APPEND CUML_PRIVATE_LINK_LIBRARIES
-#          ${MPI_CXX_LIBRARIES})
-# endif(BUILD_CUML_MPI_COMMS)
-
-# if(ENABLE_CUMLPRIMS_MG)
-#   list(APPEND CUML_INCLUDE_DIRECTORIES
-#        ${cumlprims_mg_INCLUDE_DIRS})
-
-#   list(APPEND CUML_PRIVATE_LINK_LIBRARIES
-#        cumlprims_mg::cumlprims_mg)
-# endif(ENABLE_CUMLPRIMS_MG)
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
@@ -478,14 +405,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   # Add the alias
   add_library(CUML::${CUML_CPP_TARGET} ALIAS ${CUML_CPP_TARGET})
 
-  # if(OPENMP_FOUND)
-  #   set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} ${OpenMP_CXX_LIB_NAMES} Threads::Threads)
-  # endif(OPENMP_FOUND)
-
-  # if(NVTX)
-  #   set(CUML_PUBLIC_LINK_LIBRARIES ${CUML_PUBLIC_LINK_LIBRARIES} nvToolsExt)
-  #   link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
-  # endif(NVTX)
 
   target_compile_definitions(${CUML_CPP_TARGET}
     PUBLIC
@@ -569,15 +488,6 @@ if(BUILD_CUML_C_LIBRARY)
     src/svm/svm_api.cpp
   )
   add_library(CUML::${CUML_C_TARGET} ALIAS ${CUML_C_TARGET})
-
-  # target_compile_definitions(${CUML_C_TARGET}
-  #   PRIVATE
-  #     CUML_C_API)
-
-  # target_include_directories(${CUML_C_TARGET}
-  #   PRIVATE 
-  #     ${CUML_SRC_DIR}
-  # )
 
   target_link_libraries(${CUML_C_TARGET}
     PUBLIC

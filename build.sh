@@ -108,51 +108,9 @@ if hasArg -h || hasArg --help; then
     exit 0
 fi
 
-# # Check for valid usage
-# if (( ${NUMARGS} != 0 )); then
-#     for a in ${ARGS}; do
-#         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
-#             echo "Invalid option: ${a}"
-#             exit 1
-#         fi
-#     done
-# fi
-
-# # Process flags
-# if hasArg -v; then
-#     VERBOSE=1
-# fi
-# if hasArg -g; then
-#     BUILD_TYPE=Debug
-# fi
-# if hasArg -n; then
-#     INSTALL_TARGET=""
-# fi
-# if hasArg --allgpuarch; then
-#     BUILD_ALL_GPU_ARCH=1
-# fi
-# if hasArg --singlegpu; then
-#     CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --singlegpu"
-#     SINGLEGPU_CPP_FLAG=ON
-# fi
 if hasArg cpp-mgtests; then
     BUILD_CPP_MG_TESTS=ON
 fi
-# if hasArg --buildfaiss; then
-#     BUILD_STATIC_FAISS=ON
-# fi
-# if hasArg --buildgtest; then
-#     BUILD_GTEST=ON
-# fi
-# if hasArg --nvtx; then
-#     NVTX=ON
-# fi
-# if hasArg --show_depr_warn; then
-#     BUILD_DISABLE_DEPRECATION_WARNING=OFF
-# fi
-# if hasArg --codecov; then
-#     CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
-# fi
 if hasArg clean; then
     CLEAN=1
 fi

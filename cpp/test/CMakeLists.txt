@@ -29,16 +29,6 @@ FetchContent_MakeAvailable(googletest)
 add_library(GTest::GTest ALIAS gtest)
 add_library(GTest::Main ALIAS gtest_main)
 
-# set_property(TARGET GTest::GTest PROPERTY
-#   IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
-# set_property(TARGET GTest::Main PROPERTY
-#   IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
-
-# set(GTEST_INCLUDE_DIRS "${GTEST_DIR}")
-
-# add_dependencies(GTest::GTest googletest)
-# add_dependencies(GTest::Main googletest)
-
 set(CUML_TEST_INCLUDE_DIRS
   ${GTEST_INCLUDE_DIRS}/include
   ${TREELITE_DIR}/runtime/native/include)
@@ -51,14 +41,6 @@ set(CUML_TEST_LINK_LIBRARIES
   treelite::treelite
   treelite::treelite_runtime
 )
-
-# set(PRIMS_TEST_LINK_LIBRARIES
-#   ${CUDA_cublas_LIBRARY}
-#   ${CUDA_curand_LIBRARY}
-#   ${CUDA_cusolver_LIBRARY}
-#   ${CUDA_CUDART_LIBRARY}
-#   ${CUDA_cusparse_LIBRARY}
-# )
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------

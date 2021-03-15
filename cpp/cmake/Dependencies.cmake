@@ -83,12 +83,6 @@ endif(ENABLE_CUMLPRIMS_MG)
 ##############################################################################
 # - RMM ----------------------------------------------------------------------
 
-# find_path(RMM_INCLUDE_DIRS "rmm"
-#     HINTS
-#     "$ENV{RMM_ROOT}/include"
-#     "$ENV{CONDA_PREFIX}/include/rmm"
-#     "$ENV{CONDA_PREFIX}/include")
-
 find_package(RMM REQUIRED MODULE)
 
 message(STATUS "RMM: RMM_INCLUDE_DIRS set to ${RMM_INCLUDE_DIRS}")
@@ -191,43 +185,6 @@ endif(BUILD_STATIC_FAISS)
 
 find_package(Treelite 1.0.0 REQUIRED)
 
-##############################################################################
-# - googletest build -----------------------------------------------------------
-
-# if(BUILD_GTEST)
-# 	set(GTEST_DIR ${CMAKE_CURRENT_BINARY_DIR}/googletest CACHE STRING
-# 	  "Path to googletest repo")
-# 	set(GTEST_BINARY_DIR ${PROJECT_BINARY_DIR}/googletest)
-# 	set(GTEST_INSTALL_DIR ${GTEST_BINARY_DIR}/install)
-# 	set(GTEST_LIB ${GTEST_INSTALL_DIR}/lib/libgtest_main.a)
-# 	include(ExternalProject)
-# 	ExternalProject_Add(googletest
-# 	  GIT_REPOSITORY    https://github.com/google/googletest.git
-# 	  GIT_TAG           release-1.10.0
-# 	  PREFIX            ${GTEST_DIR}
-# 	  CMAKE_ARGS        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-# 	                    -DBUILD_SHARED_LIBS=OFF
-# 	                    -DCMAKE_INSTALL_LIBDIR=lib
-# 	  BUILD_BYPRODUCTS  ${GTEST_DIR}/lib/libgtest.a
-# 	                    ${GTEST_DIR}/lib/libgtest_main.a
-# 	  UPDATE_COMMAND    "")
-
-# 	add_library(GTest::GTest STATIC IMPORTED)
-# 	add_library(GTest::Main STATIC IMPORTED)
-
-# 	set_property(TARGET GTest::GTest PROPERTY
-# 	  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest.a)
-# 	set_property(TARGET GTest::Main PROPERTY
-# 	  IMPORTED_LOCATION ${GTEST_DIR}/lib/libgtest_main.a)
-
-# 	set(GTEST_INCLUDE_DIRS "${GTEST_DIR}")
-
-# 	add_dependencies(GTest::GTest googletest)
-# 	add_dependencies(GTest::Main googletest)
-
-# else()
-# 	find_package(GTest REQUIRED)
-# endif(BUILD_GTEST)
 
 ##############################################################################
 # - googlebench ---------------------------------------------------------------
@@ -268,7 +225,5 @@ else()
   add_dependencies(cutlass cub)
 endif(CUB_IS_PART_OF_CTK)
 add_dependencies(spdlog cutlass)
-# add_dependencies(GTest::GTest spdlog)
-# add_dependencies(benchmark GTest::GTest)
 add_dependencies(FAISS::FAISS benchmark)
 add_dependencies(FAISS::FAISS faiss)
