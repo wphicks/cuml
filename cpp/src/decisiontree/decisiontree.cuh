@@ -81,6 +81,13 @@ void print(const SparseTreeNode<T, L>& node, std::ostream& os)
   return;
 }
 
+template <typename T, typename L>
+std::ostream& operator<<(std::ostream& os, const SparseTreeNode<T, L>& node)
+{
+  DT::print(node, os);
+  return os;
+}
+
 template <class T, class L>
 std::string get_node_text(const std::string& prefix,
                           const std::vector<SparseTreeNode<T, L>>& sparsetree,
@@ -155,13 +162,6 @@ std::string get_node_json(const std::string& prefix,
     oss << "}";
   }
   return oss.str();
-}
-
-template <typename T, typename L>
-std::ostream& operator<<(std::ostream& os, const SparseTreeNode<T, L>& node)
-{
-  DT::print(node, os);
-  return os;
 }
 
 template <class T, class L>
