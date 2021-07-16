@@ -19,6 +19,7 @@
 #include <cuml/tree/algo_helper.h>
 #include <cuml/tree/flatnode.h>
 #include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <algorithm>
