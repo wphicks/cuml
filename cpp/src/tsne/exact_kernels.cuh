@@ -45,7 +45,7 @@ __global__ void sigmas_kernel(const value_t* restrict distances,
 
   value_t beta_min = -INFINITY, beta_max = INFINITY;
   value_t beta           = 1;
-  register const auto ik = i * k;
+  const auto ik = i * k;
 
   for (int step = 0; step < epochs; step++) {
     value_t sum_Pi = FLT_EPSILON;
@@ -103,7 +103,7 @@ __global__ void sigmas_kernel_2d(const value_t* restrict distances,
 
   value_t beta_min = -INFINITY, beta_max = INFINITY;
   value_t beta           = 1;
-  register const auto ik = i * 2;
+  const auto ik = i * 2;
 
   for (int step = 0; step < epochs; step++) {
     // Exponentiate to get Gaussian
