@@ -817,13 +817,13 @@ __global__ void infer_k(storage_type forest, predict_params params)
   }
 }
 
-template <int NITEMS, leaf_algo_t leaf_algo>
+template <int NITEMS, leaf_algo_t leaf_algo_param>
 size_t shmem_size_params::get_smem_footprint()
 {
-  size_t finalize_footprint = tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(
+  size_t finalize_footprint = tree_aggregator_t<NITEMS, leaf_algo_param>::smem_finalize_footprint(
     cols_shmem_size(), num_classes, log2_threads_per_tree, predict_proba);
   size_t accumulate_footprint =
-    tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(num_classes) +
+    tree_aggregator_t<NITEMS, leaf_algo_param>::smem_accumulate_footprint(num_classes) +
     cols_shmem_size();
 
   return std::max(accumulate_footprint, finalize_footprint);
