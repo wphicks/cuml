@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <vector>
+
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <functions/log.cuh>
@@ -44,18 +46,16 @@ class LogTest : public ::testing::TestWithParam<LogInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    int len = params.len;
+    std::vector<T> data_h{2.1, 4.5, 0.34, 10.0};
+    raft::allocate(data, data_h.size());
+    raft::update_device(data, data_h.data(), data_h.size(), stream);
 
-    raft::allocate(data, len);
-    T data_h[params.len] = {2.1, 4.5, 0.34, 10.0};
-    raft::update_device(data, data_h, len, stream);
+    raft::allocate(result, data_h.size());
+    raft::allocate(result_ref, data_h.size());
+    std::vector<T> result_ref_h{0.74193734, 1.5040774, -1.07880966, 2.30258509};
+    raft::update_device(result_ref, result_ref_h.data(), data_h.size(), stream);
 
-    raft::allocate(result, len);
-    raft::allocate(result_ref, len);
-    T result_ref_h[params.len] = {0.74193734, 1.5040774, -1.07880966, 2.30258509};
-    raft::update_device(result_ref, result_ref_h, len, stream);
-
-    f_log(result, data, T(1), len, stream);
+    f_log(result, data, T(1), data_h.size(), stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
