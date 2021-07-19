@@ -44,15 +44,19 @@ class LogTest : public ::testing::TestWithParam<LogInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    int len = params.len;
+    const int len = params.len;
 
     raft::allocate(data, len);
-    T data_h[params.len] = {2.1, 4.5, 0.34, 10.0};
+    std::vector<T> data_h_vec{2.1, 4.5, 0.34, 10.0};
+    assert(data_h.size() == len);
+    auto data_h  = data_h_vec.data();
     raft::update_device(data, data_h, len, stream);
 
     raft::allocate(result, len);
     raft::allocate(result_ref, len);
-    T result_ref_h[params.len] = {0.74193734, 1.5040774, -1.07880966, 2.30258509};
+    std::vector<T> result_ref_h_vec{0.74193734, 1.5040774, -1.07880966, 2.30258509};
+    assert(result_ref_h_vec.size() == len);
+    auto result_ref_h  = result_ref_h_vec.data();
     raft::update_device(result_ref, result_ref_h, len, stream);
 
     f_log(result, data, T(1), len, stream);
