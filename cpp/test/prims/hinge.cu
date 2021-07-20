@@ -68,13 +68,19 @@ class HingeLossTest : public ::testing::TestWithParam<HingeLossInputs<T>> {
     raft::allocate(labels, params.n_rows);
     raft::allocate(coef, params.n_cols);
 
-    T h_in[len] = {0.1, 0.35, -0.9, -1.4, 2.0, 3.1};
+    std::vector<T> h_in_vec{0.1, 0.35, -0.9, -1.4, 2.0, 3.1};
+    assert(h_in_vec.size() == len);
+    auto h_in = h_in_vec.data();
     raft::update_device(in, h_in, len, stream);
 
-    T h_labels[n_rows] = {0.3, 2.0, -1.1};
+    std::vector<T> h_labels_vec{0.3, 2.0, -1.1};
+    assert(h_labels_vec.size() == n_rows);
+    auto h_labels = h_labels_vec.data();
     raft::update_device(labels, h_labels, n_rows, stream);
 
-    T h_coef[n_cols] = {0.35, -0.24};
+    std::vector<T> h_coef_vec{0.35, -0.24};
+    assert(h_coef_vec.size() == n_cols);
+    auto h_coef = h_coef_vec.data();
     raft::update_device(coef, h_coef, n_cols, stream);
 
     T h_out_ref[1] = {2.6037};
@@ -89,16 +95,24 @@ class HingeLossTest : public ::testing::TestWithParam<HingeLossInputs<T>> {
     T h_out_elasticnet_ref[1] = {2.83473};
     raft::update_device(out_elasticnet_ref, h_out_elasticnet_ref, 1, stream);
 
-    T h_out_grad_ref[n_cols] = {-0.24333, -1.1933};
+    std::vector<T> h_out_grad_ref_vec{-0.24333, -1.1933};
+    assert(h_out_grad_ref_vec.size() == n_cols);
+    auto h_out_grad_ref = h_out_grad_ref_vec.data();
     raft::update_device(out_grad_ref, h_out_grad_ref, n_cols, stream);
 
-    T h_out_lasso_grad_ref[n_cols] = {0.3566, -1.7933};
+    std::vector<T> h_out_lasso_grad_ref_vec{0.3566, -1.7933};
+    assert(h_out_lasso_grad_ref_vec.size() == n_cols);
+    auto h_out_lasso_grad_ref = h_out_lasso_grad_ref_vec.data();
     raft::update_device(out_lasso_grad_ref, h_out_lasso_grad_ref, n_cols, stream);
 
-    T h_out_ridge_grad_ref[n_cols] = {0.1766, -1.4813};
+    std::vector<T> h_out_ridge_grad_ref_vec{0.1766, -1.4813};
+    assert(h_out_ridge_grad_ref_vec.size() == n_cols);
+    auto h_out_ridge_grad_ref = h_out_ridge_grad_ref_vec.data();
     raft::update_device(out_ridge_grad_ref, h_out_ridge_grad_ref, n_cols, stream);
 
-    T h_out_elasticnet_grad_ref[n_cols] = {0.2666, -1.63733};
+    std::vector<T> h_out_elasticnet_grad_ref_vec{0.2666, -1.63733};
+    assert(h_out_elasticnet_grad_ref_vec.size() == n_cols);
+    auto h_out_elasticnet_grad_ref = h_out_elasticnet_grad_ref_vec.data();
     raft::update_device(out_elasticnet_grad_ref, h_out_elasticnet_grad_ref, n_cols, stream);
 
     T alpha    = 0.6;

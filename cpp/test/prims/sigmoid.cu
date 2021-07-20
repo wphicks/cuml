@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <vector>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <functions/sigmoid.cuh>
@@ -47,12 +48,16 @@ class SigmoidTest : public ::testing::TestWithParam<SigmoidInputs<T>> {
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     raft::allocate(data, len);
-    T data_h[params.len] = {2.1, -4.5, -0.34, 10.0};
+    std::vector<T> data_h_vec{2.1, -4.5, -0.34, 10.0};
+    assert(data_h_vec.size() == params.len);
+    auto data_h = data_h_vec.data();
     raft::update_device(data, data_h, len, stream);
 
     raft::allocate(result, len);
     raft::allocate(result_ref, len);
-    T result_ref_h[params.len] = {0.89090318, 0.01098694, 0.41580948, 0.9999546};
+    std::vector<T> result_ref_h_vec{0.89090318, 0.01098694, 0.41580948, 0.9999546};
+    assert(result_ref_h_vec.size() == params.len);
+    auto result_ref_h = result_ref_h_vec.data();
     raft::update_device(result_ref, result_ref_h, len, stream);
 
     sigmoid(result, data, len, stream);

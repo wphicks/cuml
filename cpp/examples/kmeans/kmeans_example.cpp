@@ -184,7 +184,9 @@ int main(int argc, char* argv[])
     CUDA_RT_CALL(cudaStreamSynchronize(stream));
 
     if (8 == h_srcdata.size()) {
-      int h_labels_ref_fit[n_samples] = {0, 1, 0, 1};
+      std::vector<int> h_labels_ref_fit_vec{0, 1, 0, 1};
+      assert(h_labels_ref_fit_vec.size() == n_samples);
+      auto h_labels_ref_fit = h_labels_ref_fit_vec.data();
       for (int i = 0; i < n_samples; ++i) {
         if (h_labels_ref_fit[i] != h_pred_labels[i]) {
           std::cerr << "ERROR: h_labels_ref_fit[" << i << "] = " << h_labels_ref_fit[i]
@@ -193,7 +195,9 @@ int main(int argc, char* argv[])
         }
       }
 
-      double h_centroids_ref[params.n_clusters * n_features] = {1.0, 1.5, 2.5, 3.5};
+      std::vector<double> h_centroids_ref_vec{1.0, 1.5, 2.5, 3.5};
+      assert(h_centroids_ref_vec.size() == params.n_clusters * n_features);
+      auto h_centroids_ref = h_centroids_ref_vec.data();
       for (int i = 0; i < params.n_clusters * n_features; ++i) {
         if (std::abs(h_centroids_ref[i] - h_pred_centroids[i]) / std::abs(h_centroids_ref[i]) >
             std::numeric_limits<double>::epsilon()) {

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <vector>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
@@ -52,22 +53,34 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     raft::allocate(coef3_ref, params.n_col, true);
     raft::allocate(coef4_ref, params.n_col, true);
 
-    T data_h[len] = {1.0, 1.2, 2.0, 2.0, 4.5, 2.0, 2.0, 3.0};
+    std::vector<T> data_h_vec{1.0, 1.2, 2.0, 2.0, 4.5, 2.0, 2.0, 3.0};
+    assert(data_h_vec.size() == len);
+    auto data_h = data_h_vec.data();
     raft::update_device(data, data_h, len, stream);
 
-    T labels_h[params.n_row] = {6.0, 8.3, 9.8, 11.2};
+    std::vector<T> labels_h_vec{6.0, 8.3, 9.8, 11.2};
+    assert(labels_h_vec.size() == params.n_row);
+    auto labels_h = labels_h_vec.data();
     raft::update_device(labels, labels_h, params.n_row, stream);
 
-    T coef_ref_h[params.n_col] = {4.90832, 0.35031};
+    std::vector<T> coef_ref_h_vec{4.90832, 0.35031};
+    assert(coef_ref_h_vec.size() == params.n_col);
+    auto coef_ref_h = coef_ref_h_vec.data();
     raft::update_device(coef_ref, coef_ref_h, params.n_col, stream);
 
-    T coef2_ref_h[params.n_col] = {2.53530, -0.36832};
+    std::vector<T> coef2_ref_h_vec{2.53530, -0.36832};
+    assert(coef2_ref_h_vec.size() == params.n_col);
+    auto coef2_ref_h = coef2_ref_h_vec.data();
     raft::update_device(coef2_ref, coef2_ref_h, params.n_col, stream);
 
-    T coef3_ref_h[params.n_col] = {2.932841, 1.15248};
+    std::vector<T> coef3_ref_h_vec{2.932841, 1.15248};
+    assert(coef3_ref_h_vec.size() == params.n_col);
+    auto coef3_ref_h = coef3_ref_h_vec.data();
     raft::update_device(coef3_ref, coef3_ref_h, params.n_col, stream);
 
-    T coef4_ref_h[params.n_col] = {0.569439, -0.00542};
+    std::vector<T> coef4_ref_h_vec{0.569439, -0.00542};
+    assert(coef4_ref_h_vec.size() == params.n_col);
+    auto coef4_ref_h = coef4_ref_h_vec.data();
     raft::update_device(coef4_ref, coef4_ref_h, params.n_col, stream);
 
     bool fit_intercept  = false;

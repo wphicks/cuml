@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <vector>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
@@ -51,16 +52,24 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     raft::allocate(coef_ref, params.n_col);
     raft::allocate(coef2_ref, params.n_col);
 
-    T data_h[len] = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0};
+    std::vector<T> data_h_vec{1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0};
+    assert(data_h_vec.size() == len);
+    auto data_h = data_h_vec.data();
     raft::update_device(data, data_h, len, stream);
 
-    T labels_h[params.n_row] = {6.0, 8.0, 9.0, 11.0};
+    std::vector<T> labels_h_vec{6.0, 8.0, 9.0, 11.0};
+    assert(labels_h_vec.size() == params.n_row);
+    auto labels_h = labels_h_vec.data();
     raft::update_device(labels, labels_h, params.n_row, stream);
 
-    T coef_ref_h[params.n_col] = {2.087, 2.5454557};
+    std::vector<T> coef_ref_h_vec{2.087, 2.5454557};
+    assert(coef_ref_h_vec.size() == params.n_col);
+    auto coef_ref_h = coef_ref_h_vec.data();
     raft::update_device(coef_ref, coef_ref_h, params.n_col, stream);
 
-    T coef2_ref_h[params.n_col] = {1.000001, 1.9999998};
+    std::vector<T> coef2_ref_h_vec{1.000001, 1.9999998};
+    assert(coef2_ref_h_vec.size() == params.n_col);
+    auto coef2_ref_h = coef2_ref_h_vec.data();
     raft::update_device(coef2_ref, coef2_ref_h, params.n_col, stream);
 
     bool fit_intercept               = false;
@@ -137,16 +146,24 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     raft::allocate(pred_log, params.n_row2);
     raft::allocate(pred_log_ref, params.n_row2);
 
-    T data_h[len] = {0.1, -2.1, 5.4, 5.4, -1.5, -2.15, 2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
+    std::vector<T> data_h_vec{0.1, -2.1, 5.4, 5.4, -1.5, -2.15, 2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
+    assert(data_h_vec.size() == len);
+    auto data_h = data_h_vec.data();
     raft::update_device(data_logreg, data_h, len, stream);
 
-    T data_test_h[len] = {0.3, 1.1, 2.1, -10.1, 0.5, 2.5, -3.55, -20.5, -1.3, 3.0, -5.0, 15.0};
+    std::vector<T> data_test_h_vec{0.3, 1.1, 2.1, -10.1, 0.5, 2.5, -3.55, -20.5, -1.3, 3.0, -5.0, 15.0};
+    assert(data_test_h_vec.size() == len);
+    auto data_test_h = data_test_h_vec.data();
     raft::update_device(data_logreg_test, data_test_h, len, stream);
 
-    T labels_logreg_h[params.n_row2] = {0.0, 1.0, 1.0, 0.0};
+    std::vector<T> labels_logreg_h_vec{0.0, 1.0, 1.0, 0.0};
+    assert(labels_logreg_h_vec.size() == params.n_row2);
+    auto labels_logreg_h = labels_logreg_h_vec.data();
     raft::update_device(labels_logreg, labels_logreg_h, params.n_row2, stream);
 
-    T pred_log_ref_h[params.n_row2] = {1.0, 0.0, 1.0, 1.0};
+    std::vector<T> pred_log_ref_h_vec{1.0, 0.0, 1.0, 1.0};
+    assert(pred_log_ref_h_vec.size() == params.n_row2);
+    auto pred_log_ref_h = pred_log_ref_h_vec.data();
     raft::update_device(pred_log_ref, pred_log_ref_h, params.n_row2, stream);
 
     bool fit_intercept               = true;
@@ -211,16 +228,24 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     raft::allocate(pred_svm, params.n_row2);
     raft::allocate(pred_svm_ref, params.n_row2);
 
-    T data_h[len] = {0.1, -2.1, 5.4, 5.4, -1.5, -2.15, 2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
+    std::vector<T> data_h_vec{0.1, -2.1, 5.4, 5.4, -1.5, -2.15, 2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
+    assert(data_h_vec.size() == len);
+    auto data_h = data_h_vec.data();
     raft::update_device(data_svmreg, data_h, len, stream);
 
-    T data_test_h[len] = {0.3, 1.1, 2.1, -10.1, 0.5, 2.5, -3.55, -20.5, -1.3, 3.0, -5.0, 15.0};
+    std::vector<T> data_test_h_vec{0.3, 1.1, 2.1, -10.1, 0.5, 2.5, -3.55, -20.5, -1.3, 3.0, -5.0, 15.0};
+    assert(data_test_h_vec.size() == len);
+    auto data_test_h = data_test_h_vec.data();
     raft::update_device(data_svmreg_test, data_test_h, len, stream);
 
-    T labels_svmreg_h[params.n_row2] = {0.0, 1.0, 1.0, 0.0};
+    std::vector<T> labels_svmreg_h_vec{0.0, 1.0, 1.0, 0.0};
+    assert(labels_svmreg_h_vec.size() == params.n_row2);
+    auto labels_svmreg_h = labels_svmreg_h_vec.data();
     raft::update_device(labels_svmreg, labels_svmreg_h, params.n_row2, stream);
 
-    T pred_svm_ref_h[params.n_row2] = {1.0, 0.0, 1.0, 1.0};
+    std::vector<T> pred_svm_ref_h_vec{1.0, 0.0, 1.0, 1.0};
+    assert(pred_svm_ref_h_vec.size() == params.n_row2);
+    auto pred_svm_ref_h = pred_svm_ref_h_vec.data();
     raft::update_device(pred_svm_ref, pred_svm_ref_h, params.n_row2, stream);
 
     bool fit_intercept               = true;

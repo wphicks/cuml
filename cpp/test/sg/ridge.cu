@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <vector>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
@@ -62,31 +63,49 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     raft::allocate(pred3_ref, params.n_row_2);
     T alpha = params.alpha;
 
-    T data_h[len] = {0.0, 0.0, 1.0, 0.0, 0.0, 1.0};
+    std::vector<T> data_h_vec{0.0, 0.0, 1.0, 0.0, 0.0, 1.0};
+    assert(data_h_vec.size() == len);
+    auto data_h = data_h_vec.data();
     raft::update_device(data, data_h, len, stream);
 
-    T labels_h[params.n_row] = {0.0, 0.1, 1.0};
+    std::vector<T> labels_h_vec{0.0, 0.1, 1.0};
+    assert(labels_h_vec.size() == params.n_row);
+    auto labels_h = labels_h_vec.data();
     raft::update_device(labels, labels_h, params.n_row, stream);
 
-    T coef_ref_h[params.n_col] = {0.39999998, 0.4};
+    std::vector<T> coef_ref_h_vec{0.39999998, 0.4};
+    assert(coef_ref_h_vec.size() == params.n_col);
+    auto coef_ref_h = coef_ref_h_vec.data();
     raft::update_device(coef_ref, coef_ref_h, params.n_col, stream);
 
-    T coef2_ref_h[params.n_col] = {0.3454546, 0.34545454};
+    std::vector<T> coef2_ref_h_vec{0.3454546, 0.34545454};
+    assert(coef2_ref_h_vec.size() == params.n_col);
+    auto coef2_ref_h = coef2_ref_h_vec.data();
     raft::update_device(coef2_ref, coef2_ref_h, params.n_col, stream);
 
-    T coef3_ref_h[params.n_col] = {0.3799999, 0.38000008};
+    std::vector<T> coef3_ref_h_vec{0.3799999, 0.38000008};
+    assert(coef3_ref_h_vec.size() == params.n_col);
+    auto coef3_ref_h = coef3_ref_h_vec.data();
     raft::update_device(coef3_ref, coef3_ref_h, params.n_col, stream);
 
-    T pred_data_h[len2] = {0.5, 2.0, 0.2, 1.0};
+    std::vector<T> pred_data_h_vec{0.5, 2.0, 0.2, 1.0};
+    assert(pred_data_h_vec.size() == len2);
+    auto pred_data_h = pred_data_h_vec.data();
     raft::update_device(pred_data, pred_data_h, len2, stream);
 
-    T pred_ref_h[params.n_row_2] = {0.28, 1.1999999};
+    std::vector<T> pred_ref_h_vec{0.28, 1.1999999};
+    assert(pred_ref_h_vec.size() == params.n_row_2);
+    auto pred_ref_h = pred_ref_h_vec.data();
     raft::update_device(pred_ref, pred_ref_h, params.n_row_2, stream);
 
-    T pred2_ref_h[params.n_row_2] = {0.37818184, 1.1727273};
+    std::vector<T> pred2_ref_h_vec{0.37818184, 1.1727273};
+    assert(pred2_ref_h_vec.size() == params.n_row_2);
+    auto pred2_ref_h = pred2_ref_h_vec.data();
     raft::update_device(pred2_ref, pred2_ref_h, params.n_row_2, stream);
 
-    T pred3_ref_h[params.n_row_2] = {0.37933332, 1.2533332};
+    std::vector<T> pred3_ref_h_vec{0.37933332, 1.2533332};
+    assert(pred3_ref_h_vec.size() == params.n_row_2);
+    auto pred3_ref_h = pred3_ref_h_vec.data();
     raft::update_device(pred3_ref, pred3_ref_h, params.n_row_2, stream);
 
     intercept = T(0);
