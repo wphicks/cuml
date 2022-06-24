@@ -667,15 +667,12 @@ constexpr bool type_supported()
   return std::is_same_v<real_t, float> || std::is_same_v<real_t, double>;
 }
 
-template <typename threshold_t, typename leaf_t>
+template <typename threshold_t, typename leaf_t, typename real_t=decltype(threshold_t{} + leaf_t{})>
 void from_treelite(const raft::handle_t& handle,
                    forest_variant* pforest_variant,
                    const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params)
 {
-  // floating-point type used for model representation
-  using real_t = decltype(threshold_t(0) + leaf_t(0));
-
   // get the pointer to the right forest variant
   *pforest_variant          = (forest_t<real_t>)nullptr;
   forest_t<real_t>* pforest = &std::get<forest_t<real_t>>(*pforest_variant);
