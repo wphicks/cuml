@@ -667,12 +667,14 @@ constexpr bool type_supported()
   return std::is_same_v<real_t, float> || std::is_same_v<real_t, double>;
 }
 
-template <typename real_t, typename threshold_t, typename leaf_t>
-void from_treelite_(const raft::handle_t& handle,
+template <typename threshold_t, typename leaf_t>
+void from_treelite(const raft::handle_t& handle,
                    forest_variant* pforest_variant,
                    const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params)
 {
+  using real_t = float;
+
   // get the pointer to the right forest variant
   *pforest_variant          = (forest_t<real_t>)nullptr;
   forest_t<real_t>* pforest = &std::get<forest_t<real_t>>(*pforest_variant);
@@ -718,16 +720,6 @@ void from_treelite_(const raft::handle_t& handle,
   }
 }
 
-template <typename threshold_t, typename leaf_t, typename real_t=decltype(threshold_t{} + leaf_t{})>
-void from_treelite(const raft::handle_t& handle,
-                   forest_variant* pforest_variant,
-                   const tl::ModelImpl<threshold_t, leaf_t>& model,
-                   const treelite_params_t* tl_params)
-{
-  from_treelite_<real_t>(handle, pforest_variant, model, tl_params);
-}
-
-template<typename real_t>
 void from_treelite(const raft::handle_t& handle,
                    forest_variant* pforest,
                    ModelHandle model,
@@ -736,11 +728,7 @@ void from_treelite(const raft::handle_t& handle,
   const tl::Model& model_ref = *(tl::Model*)model;
   model_ref.Dispatch([&](const auto& model_inner) {
     // model_inner is of the concrete type tl::ModelImpl<threshold_t, leaf_t>
-    if constexpr (std::is_same_v<real_t, void>) {
-      from_treelite(handle, pforest, model_inner, tl_params);
-    } else {
-      from_treelite_<real_t>(handle, pforest, model_inner, tl_params);
-    }
+    from_treelite(handle, pforest, model_inner, tl_params);
   });
 }
 
