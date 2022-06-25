@@ -121,6 +121,7 @@ struct treelite_params_t {
  * @param model treelite model used to initialize the forest
  * @param tl_params additional parameters for the forest
  */
+template<typename real_t=void>
 void from_treelite(const raft::handle_t& handle,
                    forest_variant* pforest,
                    ModelHandle model,
