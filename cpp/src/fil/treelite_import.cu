@@ -727,7 +727,7 @@ void from_treelite(const raft::handle_t& handle,
   from_treelite_<real_t>(handle, pforest_variant, model, tl_params);
 }
 
-template<typename real_t=void>
+template<typename real_t>
 void from_treelite(const raft::handle_t& handle,
                    forest_variant* pforest,
                    ModelHandle model,
