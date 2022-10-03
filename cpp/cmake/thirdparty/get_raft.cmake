@@ -81,8 +81,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-                        FORK             rapidsai
-                        PINNED_TAG       b88939402d63682458fccf688acae1240fcfa67f
+                        FORK             wphicks
+                        PINNED_TAG       pin-fil_backend_2209
 
                         # When PINNED_TAG above doesn't match cuml,
                         # force local raft clone in build directory
