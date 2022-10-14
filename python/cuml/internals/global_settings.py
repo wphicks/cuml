@@ -25,7 +25,8 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
         super().__init__()
         self.shared_state = {
             '_output_type': None,
-            'root_cm': None
+            'root_cm': None,
+            '_output_stack': []
         }
 
 
@@ -68,3 +69,12 @@ class GlobalSettings:
     @output_type.setter
     def output_type(self, value):
         self._output_type = value
+
+    def push_output_stack(self, output_type):
+        self._output_stack.append(output_type)
+
+    def pop_output_stack(self):
+        return self._output_stack.pop()
+
+
+global_settings = GlobalSettings()
