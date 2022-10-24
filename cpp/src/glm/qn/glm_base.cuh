@@ -17,18 +17,17 @@
 #pragma once
 
 #include "simple_mat.cuh"
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
-
 #include <vector>
 
 namespace ML {
@@ -158,7 +157,7 @@ struct GLMBase : GLMDims {
         y.data,
         Z.data,
         sample_weights);
-      raft::linalg::map(
+      raft::linalg::map_k(
         Z.data,
         y.len,
         [dlz_copy] __device__(const T y, const T z, const T weight) {

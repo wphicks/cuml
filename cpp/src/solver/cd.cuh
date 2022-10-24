@@ -22,9 +22,7 @@
 #include <functions/penalty.cuh>
 #include <functions/softThres.cuh>
 #include <glm/preprocess.cuh>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/axpy.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -39,6 +37,8 @@
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/sum.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace ML {
 namespace Solver {
@@ -194,7 +194,7 @@ void cdFit(const raft::handle_t& handle,
     raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
     raft::matrix::matrixVectorBinaryMult(
       input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(
+    raft::linalg::map_k(
       labels,
       n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
@@ -286,7 +286,7 @@ void cdFit(const raft::handle_t& handle,
   if (sample_weight != nullptr) {
     raft::matrix::matrixVectorBinaryDivSkipZero(
       input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(
+    raft::linalg::map_k(
       labels,
       n_rows,
       [] __device__(math_t a, math_t b) { return a / b; },

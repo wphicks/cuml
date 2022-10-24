@@ -14,7 +14,7 @@
 # limitations under the License.
 #=============================================================================
 
-cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
 include(../fetch_rapids.cmake)
 
@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 22.10.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 22.12.00 LANGUAGES CXX CUDA)
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -57,13 +57,12 @@ option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
 option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
-option(BUILD_CUML_PRIMS_BENCH "Build ml-prims C++ benchmark tests" ON)
 option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
 option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
-option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
+option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " OFF)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
@@ -81,7 +80,6 @@ message(VERBOSE "CUML_CPP: Building cuML multigpu algorithm tests: ${BUILD_CUML_
 message(VERBOSE "CUML_CPP: Building ml-prims tests: ${BUILD_PRIMS_TESTS}")
 message(VERBOSE "CUML_CPP: Building C++ API usage examples: ${BUILD_CUML_EXAMPLES}")
 message(VERBOSE "CUML_CPP: Building cuML C++ benchmark tests: ${BUILD_CUML_BENCH}")
-message(VERBOSE "CUML_CPP: Building ml-prims C++ benchmark tests: ${BUILD_CUML_PRIMS_BENCH}")
 message(VERBOSE "CUML_CPP: Building the standard NCCL+UCX Communicator: ${BUILD_CUML_STD_COMMS}")
 message(VERBOSE "CUML_CPP: Building the MPI+NCCL Communicator (used for testing): ${BUILD_CUML_MPI_COMMS}")
 message(VERBOSE "CUML_CPP: Enabling detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
@@ -245,7 +243,7 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
-if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
+if(BUILD_CUML_BENCH)
   include(cmake/thirdparty/get_gbench.cmake)
 endif()
 
@@ -706,7 +704,7 @@ rapids_export(BUILD cuml
 ##############################################################################
 # - build benchmark executable -----------------------------------------------
 
-if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
+if(BUILD_CUML_BENCH)
   add_subdirectory(bench)
 endif()
 
