@@ -21,9 +21,9 @@ import cupyx
 import scipy
 from cuml import Base
 from cuml.common import input_to_cuml_array
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.decomposition import PCA
 
 
@@ -77,7 +77,7 @@ class IncrementalPCA(PCA):
         is inferred from the data and set to :py:`5 * n_features`, to provide a
         balance between approximation accuracy and memory consumption.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of

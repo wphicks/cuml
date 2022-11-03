@@ -25,16 +25,17 @@ import nvtx
 import cuml
 import cuml.common
 import cuml.common.cuda
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 import cuml.internals
 import pylibraft.common.handle
-import cuml.common.input_utils
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import input_to_host_array
-from cuml.common.array import CumlArray
+import cuml.internals.input_utils
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_host_array
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.array import CumlArray
 
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.mixins import TagsMixin
+from cuml.internals.mixins import TagsMixin
 from cuml.common.device_selection import DeviceType
 
 
@@ -51,7 +52,7 @@ class Base(TagsMixin,
         their __init__.
 
     2. Attributes that users will want to access, and are array-like should
-        use cuml.common.Array, and have a preceding underscore `_` before
+        use cuml.internals.array, and have a preceding underscore `_` before
         the name the user expects. That way the __getattr__ of Base will
         convert it automatically to the appropriate output format for the
         user. For example, in DBSCAN the user expects to be able to access
@@ -166,7 +167,8 @@ class Base(TagsMixin,
     def __init__(self, *,
                  handle=None,
                  verbose=False,
-                 output_type=None):
+                 output_type=None,
+                 output_mem_type=None):
         """
         Constructor. All children must call init method of this base class.
 
@@ -187,7 +189,12 @@ class Base(TagsMixin,
         self.output_type = _check_output_type_str(
             cuml.global_settings.output_type
             if output_type is None else output_type)
+        try:
+            self.output_mem_type = MemoryType.from_str(output_mem_type)
+        except ValueError:
+            self.output_mem_type = cuml.global_settings.memory_type
         self._input_type = None
+        self._input_mem_type = None
         self.target_dtype = None
         self.n_features_in_ = None
 
@@ -312,6 +319,7 @@ class Base(TagsMixin,
             if func_name == 'fit':
                 # need to do this to mirror input type
                 self._set_output_type(args[0])
+                self._set_output_mem_type(args[0])
                 # always return the cuml estimator while training
                 # mirror sk attributes to cuml after training
                 for attribute in self.get_attributes_names():
@@ -432,13 +440,19 @@ class Base(TagsMixin,
         """
         if output_type is not None:
             self._set_output_type(output_type)
+            self._set_output_mem_type(output_type)
         if target_dtype is not None:
             self._set_target_dtype(target_dtype)
         if n_features is not None:
             self._set_n_features_in(n_features)
 
     def _set_output_type(self, inp):
-        self._input_type = cuml.common.input_utils.determine_array_type(inp)
+        self._input_type = cuml.internals.input_utils.determine_array_type(inp)
+
+    def _set_output_mem_type(self, inp):
+        self._input_mem_type = cuml.internals.input_utils.determine_array_memtype(
+            inp
+        )
 
     def _get_output_type(self, inp):
         """
@@ -456,12 +470,36 @@ class Base(TagsMixin,
 
         # If we are input, get the type from the input
         if output_type == 'input':
-            output_type = cuml.common.input_utils.determine_array_type(inp)
+            output_type = cuml.internals.input_utils.determine_array_type(inp)
+
+        return output_type
+
+    def _get_output_mem_type(self, inp):
+        """
+        Method to be called by predict/transform methods of inheriting classes.
+        Returns the appropriate memory type depending on the type of the input,
+        class output type and global output type.
+        """
+
+        # Default to the global type
+        output_type = cuml.global_settings.output_type
+        mem_type = cuml.global_settings.memory_type
+
+        # If it's None, default to our type
+        if mem_type in (None, MemoryType.mirror):
+            output_type = self.output_type
+
+        # If we are input, get the type from the input
+        if output_type == 'input':
+            output_type = cuml.internals.input_utils.determine_array_type(inp)
+            mem_type = cuml.internals.input_utils.determine_array_memtype(
+                inp
+            )
 
         return output_type
 
     def _set_target_dtype(self, target):
-        self.target_dtype = cuml.common.input_utils.determine_array_dtype(
+        self.target_dtype = cuml.internals.input_utils.determine_array_dtype(
             target)
 
     def _get_target_dtype(self):
@@ -550,6 +588,6 @@ def _determine_stateless_output_type(output_type, input_obj):
 
     # If we are using 'input', determine the the type from the input object
     if temp_output == 'input':
-        temp_output = cuml.common.input_utils.determine_array_type(input_obj)
+        temp_output = cuml.internals.input_utils.determine_array_type(input_obj)
 
     return temp_output

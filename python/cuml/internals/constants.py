@@ -13,5 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from cuml.experimental.common.base import Base
+CUML_WRAPPED_FLAG = "__cuml_is_wrapped"

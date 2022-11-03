@@ -25,15 +25,15 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.exceptions import NotFittedError
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
-from cuml.common.logger import warn
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.logger import warn
+from cuml.internals.mixins import FMajorInputTagMixin
 from libcpp cimport bool
 
 
@@ -146,7 +146,7 @@ class SVMBase(Base,
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     epsilon: float (default = 0.1)
         epsilon parameter of the epsiron-SVR model. There is no penalty

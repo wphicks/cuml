@@ -23,7 +23,7 @@ import ctypes
 import numpy as np
 import cupy as cp
 import warnings
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 import cuml.internals
 
 from collections import defaultdict
@@ -32,10 +32,10 @@ from libcpp cimport bool, nullptr
 from libc.stdint cimport uintptr_t
 
 from cuml.common import input_to_cuml_array
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.base import Base
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from pylibraft.common.handle cimport handle_t
@@ -115,7 +115,7 @@ class Lars(Base, RegressorMixin):
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of

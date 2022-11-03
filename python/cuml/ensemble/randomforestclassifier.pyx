@@ -21,11 +21,11 @@ import nvtx
 import rmm
 import warnings
 
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 
 from cuml import ForestInference
-from cuml.common.array import CumlArray
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.array import CumlArray
+from cuml.internals.mixins import ClassifierMixin
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
@@ -220,7 +220,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of

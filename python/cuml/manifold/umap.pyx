@@ -38,16 +38,16 @@ from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
 
 import cuml.internals
 from cuml.common import using_output_type
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
-from cuml.common import logger
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.memory_utils import using_output_type
-from cuml.common.import_utils import has_scipy
-from cuml.common.array import CumlArray
-from cuml.common.array_sparse import SparseCumlArray
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals import logger
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.memory_utils import using_output_type
+from cuml.internals.import_utils import has_scipy
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 from cuml.metrics.distance_type cimport DistanceType
 
@@ -263,7 +263,7 @@ class UMAP(Base,
                     print(embeddings.copy_to_host())
 
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of

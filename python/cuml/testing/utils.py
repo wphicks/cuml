@@ -33,9 +33,9 @@ from sklearn.model_selection import train_test_split
 
 import cudf
 import cuml
-from cuml.common.input_utils import input_to_cuml_array, is_array_like
-from cuml.common.base import Base
-from cuml.experimental.common.base import Base as experimentalBase
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.experimental.internals.base import Base as experimentalBase
 import pytest
 
 

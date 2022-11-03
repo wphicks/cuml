@@ -26,15 +26,15 @@ import warnings
 import math
 
 import cuml.internals
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.array import CumlArray
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.common.import_utils import has_scipy
-from cuml.common.mixins import CMajorInputTagMixin
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.import_utils import has_scipy
+from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparse_utils import is_dense
@@ -161,7 +161,7 @@ class NearestNeighbors(Base,
     n_neighbors : int (default=5)
         Default number of neighbors to query
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
@@ -933,7 +933,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         edges as the distances between points with the requested metric.
 
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     handle : cuml.Handle

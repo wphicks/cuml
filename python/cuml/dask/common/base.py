@@ -1,3 +1,4 @@
+
 # Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,9 +23,9 @@ from collections.abc import Iterable
 
 from cuml.dask.common.utils import get_client
 
-from cuml.common.base import Base
-from cuml.experimental.common.base import Base as experimentalBase
-from cuml.common.array import CumlArray
+from cuml import Base
+from cuml.internals.array import CumlArray
+from cuml.experimental.internals.base import Base as experimentalBase
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from raft_dask.common.comms import Comms
 from cuml.dask.common.input_utils import DistributedDataHandler

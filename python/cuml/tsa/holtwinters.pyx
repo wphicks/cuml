@@ -21,11 +21,11 @@ import numpy as np
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals import _deprecate_pos_args
 from cuml.common import using_output_type
-from cuml.common.base import Base
-from cuml.common.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from pylibraft.common.handle cimport handle_t
 
@@ -163,7 +163,7 @@ class ExponentialSmoothing(Base):
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of

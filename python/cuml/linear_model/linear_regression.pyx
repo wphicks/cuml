@@ -27,16 +27,18 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import CumlArray
+from cuml import Handle
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.experimental.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.base import UniversalBase
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals.global_settings import global_settings
 from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -65,7 +67,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      double *sample_weight) except +
 
 
-class LinearRegression(Base,
+class LinearRegression(UniversalBase,
                        RegressorMixin,
                        LinearPredictMixin,
                        FMajorInputTagMixin):
@@ -149,7 +151,7 @@ class LinearRegression(Base,
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
@@ -319,9 +321,9 @@ class LinearRegression(Base,
     def _predict(self, X, convert_dtype=True) -> CumlArray:
         self.dtype = self.coef_.dtype
         self.n_cols = self.coef_.shape[0]
-        # Adding Base here skips it in the Method Resolution Order (MRO)
-        # Since Base and LinearPredictMixin now both have a `predict` method
-        return super(Base, self).predict(X, convert_dtype=convert_dtype)
+        # Adding UniversalBase here skips it in the Method Resolution Order (MRO)
+        # Since UniversalBase and LinearPredictMixin now both have a `predict` method
+        return super(UniversalBase, self).predict(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
         return super().get_param_names() + \

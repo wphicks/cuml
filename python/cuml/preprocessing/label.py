@@ -20,7 +20,7 @@ from cuml import Base
 import cuml.internals
 from cuml.common import CumlArray, has_scipy
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
@@ -95,7 +95,7 @@ class LabelBinarizer(Base):
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
@@ -253,7 +253,7 @@ class LabelBinarizer(Base):
         if has_scipy():
             from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
         else:
-            from cuml.common.import_utils import dummy_function_always_false \
+            from cuml.internals.import_utils import dummy_function_always_false \
                     as scipy_sparse_isspmatrix
 
         # If we are already given multi-class, just return it.

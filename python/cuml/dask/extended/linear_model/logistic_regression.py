@@ -15,7 +15,7 @@
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.common import with_cupy_rmm
-from cuml.common.import_utils import has_daskglm
+from cuml.internals.import_utils import has_daskglm
 
 import cupy as cp
 import numpy as np
@@ -42,7 +42,7 @@ class LogisticRegression(BaseEstimator):
     max_iter: int (default = 100)
         Maximum number of iterations taken for the solvers to converge.
     verbose : int or boolean (default=False)
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     Attributes

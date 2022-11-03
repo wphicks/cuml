@@ -28,21 +28,21 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.logger import warn
+from cuml.internals.logger import warn
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
-from cuml.common.import_utils import has_sklearn
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.import_utils import has_sklearn
+from cuml.internals.mixins import FMajorInputTagMixin
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
@@ -193,7 +193,7 @@ class SVC(SVMBase,
         Currently this argument is not used and a waring will be printed if the
         user provides it.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     Attributes

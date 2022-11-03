@@ -19,7 +19,7 @@ import cupy as cp
 import cupyx
 from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.common.sparsefuncs import csr_diag_mul
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml import Base
 
 
@@ -103,7 +103,7 @@ class TfidfTransformer(Base):
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of

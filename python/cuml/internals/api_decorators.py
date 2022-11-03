@@ -21,12 +21,10 @@ import typing
 from functools import wraps
 import warnings
 
-import cuml
-import cuml.common
-import cuml.common.array
-import cuml.common.array_sparse
-import cuml.common.input_utils
-from cuml.common.type_utils import _DecoratorType, wraps_typed
+import cuml.internals.array
+import cuml.internals.array_sparse
+import cuml.internals.input_utils
+from cuml.internals.type_utils import _DecoratorType, wraps_typed
 from cuml.internals.api_context_managers import BaseReturnAnyCM
 from cuml.internals.api_context_managers import BaseReturnArrayCM
 from cuml.internals.api_context_managers import BaseReturnGenericCM
@@ -38,9 +36,10 @@ from cuml.internals.api_context_managers import ReturnGenericCM
 from cuml.internals.api_context_managers import ReturnSparseArrayCM
 from cuml.internals.api_context_managers import set_api_output_dtype
 from cuml.internals.api_context_managers import set_api_output_type
-from cuml.internals.base_helpers import _get_base_return_type
-
-CUML_WRAPPED_FLAG = "__cuml_is_wrapped"
+from cuml.internals.base_return_types import _get_base_return_type
+from cuml.internals.constants import CUML_WRAPPED_FLAG
+from cuml.internals.global_settings import global_settings
+from cuml.internals.memory_utils import using_output_type
 
 
 class DecoratorMetaClass(type):
@@ -324,13 +323,13 @@ class HasGettersDecoratorMixin(object):
             assert input_val is not None, \
                 "`get_output_type` is False but no input_arg detected"
             set_api_output_type(
-                cuml.common.input_utils.determine_array_type(input_val))
+                cuml.internals.input_utils.determine_array_type(input_val))
 
         if (self.get_output_dtype):
             assert target_val is not None, \
                 "`get_output_dtype` is False but no target_arg detected"
             set_api_output_dtype(
-                cuml.common.input_utils.determine_array_dtype(target_val))
+                cuml.internals.input_utils.determine_array_dtype(target_val))
 
     def has_getters_input(self):
         return self.get_output_type
@@ -685,21 +684,21 @@ def api_ignore(func: _DecoratorType) -> _DecoratorType:
 @contextlib.contextmanager
 def exit_internal_api():
 
-    assert (cuml.global_settings.root_cm is not None)
+    assert (global_settings.root_cm is not None)
 
     try:
-        old_root_cm = cuml.global_settings.root_cm
+        old_root_cm = global_settings.root_cm
 
-        cuml.global_settings.root_cm = None
+        global_settings.root_cm = None
 
         # Set the global output type to the previous value to pretend we never
         # entered the API
-        with cuml.using_output_type(old_root_cm.prev_output_type):
+        with using_output_type(old_root_cm.prev_output_type):
 
             yield
 
     finally:
-        cuml.global_settings.root_cm = old_root_cm
+        global_settings.root_cm = old_root_cm
 
 
 def mirror_args(

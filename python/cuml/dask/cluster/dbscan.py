@@ -25,7 +25,7 @@ from raft_dask.common.comms import get_raft_comm_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 
-from cuml.common.memory_utils import with_cupy_rmm
+from cuml.internals.memory_utils import with_cupy_rmm
 
 
 class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -43,7 +43,7 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     client : dask.distributed.Client
         Dask client to use
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be

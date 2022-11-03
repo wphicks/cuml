@@ -21,7 +21,7 @@ import cudf
 import dask
 import dask.dataframe as dd
 
-from cuml.common.memory_utils import with_cupy_rmm
+from cuml.internals.memory_utils import with_cupy_rmm
 
 from cuml.dask.common.dask_df_utils import to_dask_cudf as df_to_dask_cudf
 from dask.distributed import default_client
@@ -56,7 +56,7 @@ def _conv_array_to_sparse(arr):
     if has_scipy():
         from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
     else:
-        from cuml.common.import_utils import dummy_function_always_false \
+        from cuml.internals.import_utils import dummy_function_always_false \
             as scipy_sparse_isspmatrix
     if scipy_sparse_isspmatrix(arr):
         ret = \

@@ -26,12 +26,12 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.mixins import ClusterMixin
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import ClusterMixin
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.cluster.kmeans_utils cimport *
 from pylibraft.common.handle cimport handle_t
@@ -173,7 +173,7 @@ class KMeans(Base,
     tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a

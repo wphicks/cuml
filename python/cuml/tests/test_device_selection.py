@@ -22,10 +22,12 @@ import pandas as pd
 import cudf
 from sklearn.datasets import make_regression
 from sklearn.linear_model import LinearRegression as skLinearRegression
+from cuml import Handle
+from cuml.common.device_selection import DeviceType, using_device_type
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.memory_utils import using_memory_type
 from cuml.linear_model import LinearRegression
 from cuml.testing.test_preproc_utils import to_output_type
-from cuml.common.device_selection import DeviceType, using_device_type
-from cuml.common.memory_utils import MemoryType, using_memory_type
 import pickle
 
 

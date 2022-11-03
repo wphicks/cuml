@@ -18,11 +18,11 @@ import cupy as cp
 import numpy as np
 import math
 from numba import cuda
-from cuml.common.input_utils import input_to_cupy_array
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.base import Base
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.base import Base
 from cuml.metrics import pairwise_distances
-from cuml.common.import_utils import has_scipy
+from cuml.internals.import_utils import has_scipy
 from cuml.common.exceptions import NotFittedError
 
 if has_scipy():
@@ -177,7 +177,7 @@ class KernelDensity(Base):
         by creating handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     Examples

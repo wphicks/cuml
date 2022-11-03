@@ -27,16 +27,16 @@ from libcpp.vector cimport vector
 from typing import List, Tuple, Dict, Mapping, Optional, Union
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 from cuml.common import has_scipy
-from cuml.common.input_utils import determine_array_dtype
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import input_to_host_array
+from cuml.internals.input_utils import determine_array_dtype
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_host_array
 from cuml.internals import _deprecate_pos_args
 import warnings
 
@@ -204,7 +204,7 @@ class ARIMA(Base):
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of

@@ -27,14 +27,14 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
-from cuml.common.mixins import RegressorMixin
-from cuml.common.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.mixins import RegressorMixin
+from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -67,10 +67,10 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                        double *sample_weight) except +
 
 
-class Ridge(Base,
-            RegressorMixin,
+class Ridge(RegressorMixin,
             LinearPredictMixin,
-            FMajorInputTagMixin):
+            FMajorInputTagMixin,
+            Base):
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the
@@ -157,7 +157,7 @@ class Ridge(Base,
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     Attributes

@@ -32,22 +32,22 @@ from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
 
 import cuml.internals
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 from cuml.decomposition.utils cimport *
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common import using_output_type
 from cuml.prims.stats import cov
-from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.common.exceptions import NotFittedError
-from cuml.common.mixins import FMajorInputTagMixin
-from cuml.common.mixins import SparseInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import SparseInputTagMixin
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -220,7 +220,7 @@ class PCA(Base,
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by

@@ -22,11 +22,11 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
 import cuml.internals
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from pylibraft.common.handle cimport *
 from cuml.common import input_to_cuml_array
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
 
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
@@ -399,7 +399,7 @@ class GaussianRandomProjection(Base,
     random_state : int (default = None)
         Seed used to initilize random generator
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
@@ -540,7 +540,7 @@ class SparseRandomProjection(Base,
         Seed used to initilize random generator
 
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None

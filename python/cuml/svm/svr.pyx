@@ -24,9 +24,9 @@ from numba import cuda
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
 from pylibraft.common.handle cimport handle_t
@@ -152,7 +152,7 @@ class SVR(SVMBase, RegressorMixin):
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of

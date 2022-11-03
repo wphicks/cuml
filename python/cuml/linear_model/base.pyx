@@ -28,10 +28,11 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.base import Base
+from cuml.internals.global_settings import global_settings
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
@@ -97,5 +98,6 @@ class LinearPredictMixin:
                         <double*>preds_ptr)
 
         self.handle.sync()
+        print(preds.to_output('array'))
 
         return preds

@@ -31,11 +31,12 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 import cuml.internals
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
-from cuml.common import input_to_cuml_array, logger
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.common import input_to_cuml_array
+from cuml.internals import logger
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.doc_utils import _parameters_docstrings
 from rmm._lib.memory_resource cimport DeviceMemoryResource
 from rmm._lib.memory_resource cimport get_current_device_resource
@@ -525,7 +526,7 @@ class ForestInference(Base,
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of

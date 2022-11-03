@@ -28,7 +28,7 @@ from raft_dask.common.comms import get_raft_comm_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 
-from cuml.common.memory_utils import with_cupy_rmm
+from cuml.internals.memory_utils import with_cupy_rmm
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -61,7 +61,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     tol : float (default = 1e-4)
         Stopping criterion when centroid means do not change much.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python,
