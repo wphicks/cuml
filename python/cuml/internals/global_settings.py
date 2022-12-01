@@ -17,30 +17,14 @@
 import threading
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
+from cuml.internals.logger import warn
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.safe_imports import (
-    cpu_only_import, gpu_only_import, gpu_only_import_from
+    cpu_only_import, gpu_only_import
 )
-from cuml.internals.logger import warn
 
 cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
-
-cuda_gpu_present = gpu_only_import_from(
-    'rmm._cuda.gpu',
-    'getDeviceCount',
-)
-
-
-BUILT_WITH_CUDA = True
-
-
-def has_cuda_gpu():
-    try:
-       dc = cuda_gpu_present()
-       return dc >= 1
-    except UnavailableError:
-        return False
 
 
 class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
@@ -49,7 +33,7 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
 
     def __init__(self):
         super().__init__()
-        if BUILT_WITH_CUDA and has_cuda_gpu():
+        if is_cuda_available():
             default_device_type = DeviceType.device
             default_memory_type = MemoryType.device
         else:
@@ -102,6 +86,8 @@ class GlobalSettings:
     @device_type.setter
     def device_type(self, value):
         self._device_type = value
+        # Only change the memory type if current value is incompatible with new
+        # device
         if not self._device_type.is_compatible(self.memory_type):
             self.memory_type = self._device_type.default_memory_type
 
@@ -127,16 +113,13 @@ class GlobalSettings:
         return self.memory_type.xpy
 
 
-global_settings = GlobalSettings()
-
-
 def set_global_memory_type(memory_type):
-    global_settings.memory_type = MemoryType.from_str(memory_type)
+    GlobalSettings().memory_type = MemoryType.from_str(memory_type)
 
 
 class using_memory_type:
     def __init__(self, memory_type):
-        self.prev_memory_type = global_settings.memory_type
+        self.prev_memory_type = GlobalSettings().memory_type
         set_global_memory_type(memory_type)
 
     def __enter__(self):
@@ -147,12 +130,12 @@ class using_memory_type:
 
 
 def set_global_device_type(device_type):
-    global_settings.device_type = DeviceType.from_str(device_type)
+    GlobalSettings().device_type = DeviceType.from_str(device_type)
 
 
 class using_device_type:
     def __init__(self, device_type):
-        self.prev_device_type = global_settings.device_type
+        self.prev_device_type = GlobalSettings().device_type
         set_global_device_type(device_type)
 
     def __enter__(self):

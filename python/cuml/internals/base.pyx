@@ -21,6 +21,7 @@ import inspect
 from importlib import import_module
 import numpy as np
 import nvtx
+import typing
 
 import cuml
 import cuml.common
@@ -31,13 +32,29 @@ import pylibraft.common.handle
 import cuml.internals.input_utils
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.input_utils import input_to_host_array
+from cuml.internals.input_utils import (
+    determine_array_type,
+    determine_array_memtype,
+    input_to_cuml_array,
+    input_to_host_array
+)
 from cuml.internals.mem_type import MemoryType
+from cuml.internals.memory_utils import using_memory_type
+from cuml.internals.output_type import (
+    INTERNAL_VALID_OUTPUT_TYPES,
+    VALID_OUTPUT_TYPES
+)
 from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.safe_imports import (
+    gpu_only_import, gpu_only_import_from
+)
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import TagsMixin
+
+cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
+cp = gpu_only_import('cupy')
 
 
 class Base(TagsMixin,
@@ -115,13 +132,14 @@ class Base(TagsMixin,
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
-        (`cuml.global_settings.output_type`) will be used.
-        See :ref:`output-data-type-configuration` for more info.
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     output_mem_type : {'host', 'device'}, default=None
         Return results with memory of the indicated type and use the
         indicated memory type for estimator attributes. If None, the memory
@@ -195,10 +213,10 @@ class Base(TagsMixin,
         self.output_type = _check_output_type_str(
             cuml.global_settings.output_type
             if output_type is None else output_type)
-        try:
-            self.output_mem_type = MemoryType.from_str(output_mem_type)
-        except ValueError:
+        if output_mem_type is None:
             self.output_mem_type = cuml.global_settings.memory_type
+        else:
+            self.output_mem_type = MemoryType.from_str(output_mem_type)
         self._input_type = None
         self._input_mem_type = None
         self.target_dtype = None
@@ -207,7 +225,6 @@ class Base(TagsMixin,
         nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
         if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
             self.set_nvtx_annotations()
-
 
     def __repr__(self):
         """
@@ -337,10 +354,10 @@ class Base(TagsMixin,
             self._set_n_features_in(n_features)
 
     def _set_output_type(self, inp):
-        self._input_type = cuml.internals.input_utils.determine_array_type(inp)
+        self._input_type = determine_array_type(inp)
 
     def _set_output_mem_type(self, inp):
-        self._input_mem_type = cuml.internals.input_utils.determine_array_memtype(
+        self._input_mem_type = determine_array_memtype(
             inp
         )
 
@@ -360,7 +377,7 @@ class Base(TagsMixin,
 
         # If we are input, get the type from the input
         if output_type == 'input':
-            output_type = cuml.internals.input_utils.determine_array_type(inp)
+            output_type = determine_array_type(inp)
 
         return output_type
 
@@ -381,12 +398,10 @@ class Base(TagsMixin,
 
         # If we are input, get the type from the input
         if output_type == 'input':
-            output_type = cuml.internals.input_utils.determine_array_type(inp)
-            mem_type = cuml.internals.input_utils.determine_array_memtype(
-                inp
-            )
+            output_type = determine_array_type(inp)
+            mem_type = determine_array_memtype(inp)
 
-        return output_type
+        return mem_type
 
     def _set_target_dtype(self, target):
         self.target_dtype = cuml.internals.input_utils.determine_array_dtype(
@@ -451,16 +466,19 @@ def _check_output_type_str(output_str):
     if isinstance(output_str, str):
         output_type = output_str.lower()
         # Check for valid output types + "input"
-        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
+        if output_type in INTERNAL_VALID_OUTPUT_TYPES:
             # Return the original version if nothing has changed, otherwise
             # return the lowered. This is to try and keep references the same
             # to support sklearn.base.clone() where possible
             return output_str if output_type == output_str else output_type
 
-    # Did not match any acceptable value
-    raise ValueError("output_type must be one of " +
-                     "'numpy', 'cupy', 'cudf' or 'numba'" +
-                     "Got: {}".format(output_str))
+    valid_output_types_str = ', '.join(
+        [f"'{x}'" for x in VALID_OUTPUT_TYPES]
+    )
+    raise ValueError(
+        f'output_type must be one of {valid_output_types_str}'
+        f' Got: {output_str}'
+    )
 
 
 def _determine_stateless_output_type(output_type, input_obj):
@@ -478,7 +496,7 @@ def _determine_stateless_output_type(output_type, input_obj):
 
     # If we are using 'input', determine the the type from the input object
     if temp_output == 'input':
-        temp_output = cuml.internals.input_utils.determine_array_type(input_obj)
+        temp_output = determine_array_type(input_obj)
 
     return temp_output
 
@@ -517,30 +535,29 @@ class UniversalBase(Base):
             # check if the sklean model already set as attribute of the cuml
             # estimator its presence should signify that CPU execution was
             # used previously
-            if not hasattr(self, 'sk_model_'):
-                # import model in sklearn
-                if hasattr(self, 'sk_import_path_'):
-                    # if import path differs from the one of sklearn
-                    # look for sk_import_path_
-                    model_path = self.sk_import_path_
-                else:
-                    # import from similar path to the current estimator
-                    # class
-                    model_path = 'sklearn' + self.__class__.__module__[4:]
-                model_name = self.__class__.__name__
-                sk_model = getattr(import_module(model_path), model_name)
+            if not hasattr(self, '_cpu_model'):
+                filtered_kwargs = {}
+                for keyword, arg in self._full_kwargs.items():
+                    if keyword in self._cpu_hyperparams:
+                        filtered_kwargs[keyword] = arg
+                    else:
+                        logger.info("Unused keyword parameter: {} "
+                                    "during CPU estimator "
+                                    "initialization".format(keyword))
+
                 # initialize model
-                self.sk_model_ = sk_model()
-                # transfer params set during cuml estimator initialization
-                for param in self.get_param_names():
-                    self.sk_model_.__dict__[param] = self.__dict__[param]
+                self._cpu_model = self._cpu_model_class(**filtered_kwargs)
 
                 # transfer attributes trained with cuml
-                for attr in self.get_attributes_names():
+                for attr in self.get_attr_names():
                     # check presence of attribute
-                    if hasattr(self, attr):
+                    if hasattr(self, attr) or \
+                       isinstance(getattr(type(self), attr, None), property):
                         # get the cuml attribute
-                        cu_attr = self.__dict__[attr]
+                        if hasattr(self, attr):
+                            cu_attr = getattr(self, attr)
+                        else:
+                            cu_attr = getattr(type(self), attr).fget(self)
                         # if the cuml attribute is a CumlArrayDescriptorMeta
                         if hasattr(cu_attr, 'get_input_value'):
                             # extract the actual value from the
@@ -550,20 +567,27 @@ class UniversalBase(Base):
                             if cu_attr_value is not None:
                                 if cu_attr.input_type == 'cuml':
                                     # transform cumlArray to numpy and set it
-                                    # as an attribute in the sklearn model
-                                    self.sk_model_.__dict__[attr] = \
-                                        cu_attr_value.to_output('numpy')
+                                    # as an attribute in the CPU estimator
+                                    setattr(self._cpu_model, attr,
+                                            cu_attr_value.to_output('numpy'))
                                 else:
                                     # transfer all other types of attributes
                                     # directly
-                                    self.sk_model_.__dict__[attr] = \
-                                        cu_attr_value
+                                    setattr(self._cpu_model, attr,
+                                            cu_attr_value)
+                        elif isinstance(cu_attr, CumlArray):
+                            # transform cumlArray to numpy and set it
+                            # as an attribute in the CPU estimator
+                            setattr(self._cpu_model, attr,
+                                    cu_attr.to_output('numpy'))
+                        elif isinstance(cu_attr, cp_ndarray):
+                            # transform cupy to numpy and set it
+                            # as an attribute in the CPU estimator
+                            setattr(self._cpu_model, attr,
+                                    cp.asnumpy(cu_attr))
                         else:
                             # transfer all other types of attributes directly
-                            self.sk_model_.__dict__[attr] = cu_attr
-                    else:
-                        raise ValueError('Attribute "{}" could not be found in'
-                                         ' the cuML estimator'.format(attr))
+                            setattr(self._cpu_model, attr, cu_attr)
 
             # converts all the args
             args = tuple(input_to_host_array(arg)[0] for arg in args)
@@ -572,38 +596,94 @@ class UniversalBase(Base):
                 kwargs[key] = input_to_host_array(kwarg)[0]
 
             # call the method from the sklearn model
-            sk_func = getattr(self.sk_model_, func_name)
-            res = sk_func(*args, **kwargs)
-            if func_name == 'fit':
+            cpu_func = getattr(self._cpu_model, func_name)
+            res = cpu_func(*args, **kwargs)
+
+            if func_name in ['fit', 'fit_transform', 'fit_predict']:
                 # need to do this to mirror input type
                 self._set_output_type(args[0])
                 self._set_output_mem_type(args[0])
                 # always return the cuml estimator while training
                 # mirror sk attributes to cuml after training
-                for attribute in self.get_attributes_names():
-                    sk_attr = self.sk_model_.__dict__[attribute]
-                    # if the sklearn attribute is an array
-                    if isinstance(sk_attr, np.ndarray):
-                        # transfer array to gpu and set it as a cuml
-                        # attribute
-                        cuml_array = input_to_cuml_array(
-                            sk_attr,
-                            convert_to_mem_type=(
-                                MemoryType.host,
-                                MemoryType.device
-                            )[is_cuda_available()]
-                        )[0]
-                        setattr(self, attribute, cuml_array)
-                    else:
-                        # transfer all other types of attributes directly
-                        setattr(self, attribute, sk_attr)
-                return self
-            else:
-                # return method result
-                return res
+                with using_memory_type(
+                    (MemoryType.host, MemoryType.device)[
+                        is_cuda_available()
+                    ]
+                ):
+                    for attr in self.get_attr_names():
+                        # check presence of attribute
+                        if hasattr(self._cpu_model, attr) or \
+                           isinstance(getattr(type(self._cpu_model),
+                                              attr, None), property):
+                            # get the cpu attribute
+                            if hasattr(self._cpu_model, attr):
+                                cpu_attr = getattr(self._cpu_model, attr)
+                            else:
+                                cpu_attr = getattr(type(self._cpu_model),
+                                                   attr).fget(self._cpu_model)
+                            # if the cpu attribute is an array
+                            if isinstance(cpu_attr, np.ndarray):
+                                # get data order wished for by
+                                # CumlArrayDescriptor
+                                if hasattr(self, attr + '_order'):
+                                    order = getattr(self, attr + '_order')
+                                else:
+                                    order = 'K'
+                                # transfer array to gpu and set it as a cuml
+                                # attribute
+                                cuml_array = input_to_cuml_array(
+                                    cpu_attr,
+                                    order=order,
+                                    convert_to_mem_type=(
+                                        MemoryType.host,
+                                        MemoryType.device
+                                    )[is_cuda_available()]
+                                )[0]
+                                setattr(self, attr, cuml_array)
+                            else:
+                                # transfer all other types of attributes
+                                # directly
+                                setattr(self, attr, cpu_attr)
+                if func_name == 'fit':
+                    return self
+            # return method result
+            return res
 
-    def fit(self, X, y, **kwargs):
-        return self.dispatch_func('fit', X, y, **kwargs)
+    def fit(self, *args, **kwargs):
+        return self.dispatch_func('fit', *args, **kwargs)
 
-    def predict(self, X, **kwargs) -> CumlArray:
-        return self.dispatch_func('predict', X, **kwargs)
+    def predict(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('predict', *args, **kwargs)
+
+    def transform(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('transform', *args, **kwargs)
+
+    @cuml.internals.api_base_return_generic()
+    def kneighbors(self, X, *args, **kwargs) \
+            -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
+        return self.dispatch_func('kneighbors', X, *args, **kwargs)
+
+    def kneighbors_graph(self, X, *args, **kwargs) \
+            -> SparseCumlArray:
+        return self.dispatch_func('kneighbors_graph', X, *args, **kwargs)
+
+    def fit_transform(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('fit_transform', *args, **kwargs)
+
+    def fit_predict(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('fit_predict', *args, **kwargs)
+
+    def inverse_transform(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('inverse_transform', *args, **kwargs)
+
+    def score(self, *args, **kwargs):
+        return self.dispatch_func('score', *args, **kwargs)
+
+    def decision_function(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('decision_function', *args, **kwargs)
+
+    def predict_proba(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('predict_proba', *args, **kwargs)
+
+    def predict_log_proba(self, *args, **kwargs) -> CumlArray:
+        return self.dispatch_func('predict_log_proba', *args, **kwargs)

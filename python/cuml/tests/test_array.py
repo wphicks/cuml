@@ -23,9 +23,9 @@ import operator
 
 from copy import deepcopy
 from cuml.internals.array import CumlArray
+from cuml import global_settings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import _get_size_from_shape
-from cuml.internals.memory_utils import _strides_to_order
 # Temporarily disabled due to CUDA 11.0 issue
 # https://github.com/rapidsai/cuml/issues/4332
 # from rmm import DeviceBuffer
@@ -40,7 +40,6 @@ cudf = gpu_only_import('cudf')
 np = cpu_only_import('numpy')
 
 cuda = gpu_only_import_from('numba', 'cuda')
-Buffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
 CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 CudfSeries = gpu_only_import_from('cudf', 'Series')
 PandasSeries = cpu_only_import_from('pandas', 'Series')
@@ -460,12 +459,12 @@ def test_cuda_array_interface(dtype, shape, order):
     else:
         assert ary.__cuda_array_interface__['shape'] == (shape,)
 
-    # numba sometimes reports None in its __cuda_array_interface__ when the
-    # actual array attribute `.strides` is not None. We go by the array
-    # interface as our source of truth, so we check this directly
+    input_strides = inp.__cuda_array_interface__['strides']
+    if input_strides is None:
+        input_strides = inp.strides
     assert (
         ary.__cuda_array_interface__['strides'] ==
-        inp.__cuda_array_interface__['strides']
+        input_strides
     )
     assert ary.__cuda_array_interface__['typestr'] == inp.dtype.str
     assert ary.__cuda_array_interface__['data'] == \
@@ -480,8 +479,6 @@ def test_cuda_array_interface(dtype, shape, order):
 
     assert np.all(truth == cp.asnumpy(result))
 
-    return True
-
 
 @pytest.mark.parametrize('input_type', test_input_types)
 def test_serialize(input_type):
@@ -494,7 +491,6 @@ def test_serialize(input_type):
     ary2 = CumlArray.deserialize(header, frames)
 
     assert pickle.loads(header['type-serialized']) is CumlArray
-    assert all(isinstance(f, Buffer) for f in frames)
 
     if input_type == 'numpy':
         assert np.all(inp == ary2.to_output('numpy'))
@@ -503,12 +499,13 @@ def test_serialize(input_type):
     else:
         assert cp.all(cp.asarray(inp) == cp.asarray(ary2))
 
-    assert ary.__cuda_array_interface__['shape'] == \
-        ary2.__cuda_array_interface__['shape']
-    assert ary.__cuda_array_interface__['strides'] == \
-        ary2.__cuda_array_interface__['strides']
-    assert ary.__cuda_array_interface__['typestr'] == \
-        ary2.__cuda_array_interface__['typestr']
+    assert ary._array_interface['shape'] == \
+        ary2._array_interface['shape']
+    assert ary._array_interface['strides'] == \
+        ary2._array_interface['strides']
+    assert ary._array_interface['typestr'] == \
+        ary2._array_interface['typestr']
+    assert ary2.mem_type is global_settings.memory_type
 
     if input_type != 'series':
         # skipping one dimensional ary order test
@@ -546,12 +543,12 @@ def test_pickle(input_type, protocol):
     else:
         assert cp.all(cp.asarray(inp) == cp.asarray(b))
 
-    assert ary.__cuda_array_interface__['shape'] == \
-        b.__cuda_array_interface__['shape']
-    assert ary.__cuda_array_interface__['strides'] == \
-        b.__cuda_array_interface__['strides']
-    assert ary.__cuda_array_interface__['typestr'] == \
-        b.__cuda_array_interface__['typestr']
+    assert ary._array_interface['shape'] == \
+        b._array_interface['shape']
+    assert ary._array_interface['strides'] == \
+        b._array_interface['strides']
+    assert ary._array_interface['typestr'] == \
+        b._array_interface['typestr']
 
     if input_type != 'series':
         # skipping one dimensional ary order test
@@ -575,12 +572,12 @@ def test_deepcopy(input_type):
 
     assert ary.ptr != b.ptr
 
-    assert ary.__cuda_array_interface__['shape'] == \
-        b.__cuda_array_interface__['shape']
-    assert ary.__cuda_array_interface__['strides'] == \
-        b.__cuda_array_interface__['strides']
-    assert ary.__cuda_array_interface__['typestr'] == \
-        b.__cuda_array_interface__['typestr']
+    assert ary._array_interface['shape'] == \
+        b._array_interface['shape']
+    assert ary._array_interface['strides'] == \
+        b._array_interface['strides']
+    assert ary._array_interface['typestr'] == \
+        b._array_interface['typestr']
 
     if input_type != 'series':
         # skipping one dimensional ary order test

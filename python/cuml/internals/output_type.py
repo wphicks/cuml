@@ -13,10 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+VALID_OUTPUT_TYPES = (
+    'array',
+    'numba',
+    'dataframe',
+    'series',
+    'df_obj',
+    'cupy',
+    'numpy',
+    'cudf',
+    'pandas'
+)
 
-'''cuml.internals.placeholders
-
-cuML offers a number of installation configurations with different
-dependencies and functionality. To more seamlessly handle functionality
-available in one configuration but not another, it is sometimes useful to
-have generic placeholder objects that will either throw an exception
+INTERNAL_VALID_OUTPUT_TYPES = (
+    'input',
+    *VALID_OUTPUT_TYPES
+)

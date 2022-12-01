@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ from cuml.internals.api_decorators import (
     api_base_return_any,
     api_base_return_array_skipall,
     api_base_return_array,
-    api_base_return_autoarray,
     api_base_return_generic_skipall,
     api_base_return_generic,
     api_base_return_sparse_array,

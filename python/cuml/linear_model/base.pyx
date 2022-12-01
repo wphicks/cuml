@@ -19,6 +19,7 @@
 import ctypes
 import cuml.internals
 import numpy as np
+import cupy as cp
 import warnings
 
 from numba import cuda
@@ -31,11 +32,11 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
-from cuml.internals.global_settings import global_settings
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import input_to_cupy_array
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -62,16 +63,37 @@ class LinearPredictMixin:
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array_skipall
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def _predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
 
         """
+        if self.coef_ is None:
+            raise ValueError(
+                "LinearModel.predict() cannot be called before fit(). "
+                "Please fit the model first."
+            )
+        self.dtype = self.coef_.dtype
+        if len(self.coef_.shape) == 2 and self.coef_.shape[1] > 1:
+            # Handle multi-target prediction in Python.
+            coef_cp = input_to_cupy_array(self.coef_).array
+            X_cp = input_to_cupy_array(
+                X,
+                check_dtype=self.dtype,
+                convert_to_dtype=(self.dtype if convert_dtype else None),
+                check_cols=self.n_cols
+            ).array
+            intercept_cp = input_to_cupy_array(self.intercept_).array
+            preds_cp = X_cp @ coef_cp + intercept_cp
+            # preds = input_to_cuml_array(preds_cp).array # TODO:remove
+            return preds_cp
+
+        # Handle single-target prediction in C++
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
-                                check_cols=self.n_cols)
+                                check_cols=self.n_features_in_)
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
 
@@ -98,6 +120,5 @@ class LinearPredictMixin:
                         <double*>preds_ptr)
 
         self.handle.sync()
-        print(preds.to_output('array'))
 
         return preds

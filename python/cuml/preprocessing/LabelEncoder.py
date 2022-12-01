@@ -44,74 +44,74 @@ class LabelEncoder(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
 
     Converting a categorical implementation to a numerical one
-    .. code-block:: python
 
-        >>> from cudf import DataFrame, Series
-        >>> from cuml.preprocessing import LabelEncoder
-        >>> data = DataFrame({'category': ['a', 'b', 'c', 'd']})
+    >>> from cudf import DataFrame, Series
+    >>> from cuml.preprocessing import LabelEncoder
+    >>> data = DataFrame({'category': ['a', 'b', 'c', 'd']})
 
-        >>> # There are two functionally equivalent ways to do this
-        >>> le = LabelEncoder()
-        >>> le.fit(data.category)  # le = le.fit(data.category) also works
-        LabelEncoder()
-        >>> encoded = le.transform(data.category)
+    >>> # There are two functionally equivalent ways to do this
+    >>> le = LabelEncoder()
+    >>> le.fit(data.category)  # le = le.fit(data.category) also works
+    LabelEncoder()
+    >>> encoded = le.transform(data.category)
 
-        >>> print(encoded)
-        0    0
-        1    1
-        2    2
-        3    3
-        dtype: uint8
+    >>> print(encoded)
+    0    0
+    1    1
+    2    2
+    3    3
+    dtype: uint8
 
-        >>> # This method is preferred
-        >>> le = LabelEncoder()
-        >>> encoded = le.fit_transform(data.category)
+    >>> # This method is preferred
+    >>> le = LabelEncoder()
+    >>> encoded = le.fit_transform(data.category)
 
-        >>> print(encoded)
-        0    0
-        1    1
-        2    2
-        3    3
-        dtype: uint8
+    >>> print(encoded)
+    0    0
+    1    1
+    2    2
+    3    3
+    dtype: uint8
 
-        >>> # We can assign this to a new column
-        >>> data = data.assign(encoded=encoded)
-        >>> print(data.head())
-        category  encoded
-        0         a        0
-        1         b        1
-        2         c        2
-        3         d        3
+    >>> # We can assign this to a new column
+    >>> data = data.assign(encoded=encoded)
+    >>> print(data.head())
+    category  encoded
+    0         a        0
+    1         b        1
+    2         c        2
+    3         d        3
 
-        >>> # We can also encode more data
-        >>> test_data = Series(['c', 'a'])
-        >>> encoded = le.transform(test_data)
-        >>> print(encoded)
-        0    2
-        1    0
-        dtype: uint8
+    >>> # We can also encode more data
+    >>> test_data = Series(['c', 'a'])
+    >>> encoded = le.transform(test_data)
+    >>> print(encoded)
+    0    2
+    1    0
+    dtype: uint8
 
-        >>> # After train, ordinal label can be inverse_transform() back to
-        >>> # string labels
-        >>> ord_label = cudf.Series([0, 0, 1, 2, 1])
-        >>> str_label = le.inverse_transform(ord_label)
-        >>> print(str_label)
-        0    a
-        1    a
-        2    b
-        3    c
-        4    b
-        dtype: object
+    >>> # After train, ordinal label can be inverse_transform() back to
+    >>> # string labels
+    >>> ord_label = cudf.Series([0, 0, 1, 2, 1])
+    >>> str_label = le.inverse_transform(ord_label)
+    >>> print(str_label)
+    0    a
+    1    a
+    2    b
+    3    c
+    4    b
+    dtype: object
 
     """
 

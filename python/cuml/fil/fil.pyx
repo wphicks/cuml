@@ -528,11 +528,12 @@ class ForestInference(Base,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -562,9 +563,9 @@ class ForestInference(Base,
         ...     np.asarray(fil_preds_gpu)) # doctest: +SKIP
 
     Notes
-    ------
+    -----
     For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/forest_inference_demo.ipynb
+    https://github.com/rapidsai/cuml/blob/main/notebooks/forest_inference_demo.ipynb
 
     """
 
@@ -665,7 +666,7 @@ class ForestInference(Base,
             version.
 
         Returns
-        ----------
+        -------
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
@@ -694,7 +695,7 @@ class ForestInference(Base,
             version.
 
         Returns
-        ----------
+        -------
         GPU array of shape (n_samples,2) with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
@@ -722,7 +723,7 @@ class ForestInference(Base,
             https://treelite.readthedocs.io/en/latest/treelite-api.html
     {}
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest/ XGBoost model.
@@ -812,7 +813,7 @@ class ForestInference(Base,
             - ``'float64'``: always load in float64
 
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model created from the scikit-learn
             model passed.
@@ -909,7 +910,7 @@ class ForestInference(Base,
             It can be 'xgboost', 'xgboost_json', 'lightgbm'.
 
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model which can be used to perform
             inferencing on the model read from the file.
@@ -947,7 +948,7 @@ class ForestInference(Base,
     {}
 
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.

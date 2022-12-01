@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,9 @@ from cuml.internals.safe_imports import (
     gpu_only_import,
     gpu_only_import_from,
     safe_import,
+    safe_import_from,
     null_decorator,
+    return_false,
     UnavailableError
 )
 
@@ -53,6 +55,16 @@ try:
     NumbaDeviceNDArrayBase = numba_devicearray.DeviceNDArrayBase
 except UnavailableError:
     NumbaDeviceNDArrayBase = numba_devicearray
+scipy_isspmatrix = safe_import_from(
+    'scipy.sparse',
+    'isspmatrix',
+    alt=return_false
+)
+cupyx_isspmatrix = gpu_only_import_from(
+    'cupyx.scipy.sparse',
+    'isspmatrix',
+    alt=return_false
+)
 
 nvtx_annotate = gpu_only_import_from(
     'nvtx',
@@ -86,17 +98,19 @@ _input_type_to_mem_type = {
     NumbaDeviceNDArrayBase: MemoryType.device
 }
 
-_sparse_types = [SparseCumlArray]
+_SPARSE_TYPES = [SparseCumlArray]
 
 try:
     _input_type_to_str[cupyx.scipy.sparse.spmatrix] = 'cupy'
-    _sparse_types.append(cupyx.scipy.sparse.spmatrix)
+    _SPARSE_TYPES.append(cupyx.scipy.sparse.spmatrix)
+    _input_type_to_mem_type[cupyx.scipy.sparse.spmatrix] = MemoryType.device
 except UnavailableError:
     pass
 
 try:
     _input_type_to_str[scipy_sparse.spmatrix] = 'numpy'
-    _sparse_types.append(scipy_sparse.spmatrix)
+    _SPARSE_TYPES.append(scipy_sparse.spmatrix)
+    _input_type_to_mem_type[scipy_sparse.spmatrix] = MemoryType.device
 except UnavailableError:
     pass
 
@@ -245,26 +259,41 @@ def determine_array_type_full(X):
     if (gen_type is None):
         return None, None
 
-    return _input_type_to_str[gen_type], gen_type in _sparse_types
+    return _input_type_to_str[gen_type], gen_type in _SPARSE_TYPES
 
 
 def is_array_like(X):
+    if (
+        hasattr(X, '__cuda_array_interface__')
+        or (
+            hasattr(X, '__array_interface__')
+            and not (
+                isinstance(X, global_settings.xpy.generic)
+                or isinstance(X, type)
+            )
+        ) or isinstance(X, (
+            SparseCumlArray, CudfSeries, PandasSeries, CudfDataFrame,
+            PandasDataFrame
+        ))
+    ):
+        return True
+
     try:
-        return (
-            hasattr(X, '__cuda_array_interface__')
-            or (
-                hasattr(X, '__array_interface__')
-                and not (
-                    isinstance(X, global_settings.xpy.generic)
-                    or isinstance(X, type)
-                )
-            ) or isinstance(X, (
-                SparseCumlArray, CudfSeries, PandasSeries, CudfDataFrame,
-                PandasDataFrame))
-            or numba_cuda.devicearray.is_cuda_ndarray(X)
-        )
+        if cupyx_isspmatrix(X):
+            return True
     except UnavailableError:
-        return False
+        pass
+    try:
+        if scipy_isspmatrix(X):
+            return True
+    except UnavailableError:
+        pass
+    try:
+        if numba_cuda.devicearray.is_cuda_ndarray(X):
+            return True
+    except UnavailableError:
+        pass
+    return False
 
 
 @nvtx_annotate(message="common.input_utils.input_to_cuml_array",
@@ -418,7 +447,7 @@ def input_to_cupy_array(X,
                                    force_contiguous=force_contiguous,
                                    convert_to_mem_type=MemoryType.device)
 
-    return out_data._replace(array=out_data.array.to_output("array"))
+    return out_data._replace(array=out_data.array.to_output("cupy"))
 
 
 @nvtx_annotate(message="common.input_utils.input_to_host_array",
@@ -476,7 +505,24 @@ def convert_dtype(X,
     if safe_dtype:
         cur_dtype = determine_array_dtype(X)
         if not global_settings.xpy.can_cast(cur_dtype, to_dtype):
-            raise TypeError("Data type conversion would lose information.")
+            try:
+                target_dtype_range = global_settings.xpy.iinfo(
+                    to_dtype
+                )
+            except ValueError:
+                target_dtype_range = global_settings.xpy.finfo(
+                    to_dtype
+                )
+            out_of_range = (
+                (X < target_dtype_range.min) | (X > target_dtype_range.max)
+            ).any()
+            try:
+                out_of_range = out_of_range.any()
+            except AttributeError:
+                pass
+
+            if out_of_range:
+                raise TypeError("Data type conversion would lose information.")
     try:
         if numba_cuda.is_cuda_array(X):
             arr = cp.asarray(X, dtype=to_dtype)

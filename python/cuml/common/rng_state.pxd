@@ -14,4 +14,17 @@
 # limitations under the License.
 #
 
-from cuml.experimental.internals.base import Base
+import ctypes
+from libcpp cimport bool
+from libc.stdint cimport uint64_t
+
+cdef extern from "raft/random/rng_state.hpp" namespace \
+        "raft::random":
+    enum GeneratorType:
+        GenPhilox, GenPC
+
+    cdef struct RngState:
+        RngState(uint64_t seed) except +
+        uint64_t seed,
+        uint64_t base_subsequence,
+        GeneratorType type

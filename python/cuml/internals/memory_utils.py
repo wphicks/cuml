@@ -14,33 +14,32 @@
 # limitations under the License.
 #
 
-import contextlib
 import functools
 import operator
 import re
 from dataclasses import dataclass
 from functools import wraps
-from enum import Enum, auto
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.mem_type import MemoryType
+from cuml.internals.output_type import (
+    INTERNAL_VALID_OUTPUT_TYPES,
+    VALID_OUTPUT_TYPES
+)
 from cuml.internals.safe_imports import (
-    gpu_only_import,
     gpu_only_import_from,
-    NullContext
+    UnavailableNullContext
 )
 
 cupy_using_allocator = gpu_only_import_from(
-    'cupy.cuda', 'using_allocator', alt=NullContext
+    'cupy.cuda', 'using_allocator', alt=UnavailableNullContext
 )
 rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
-global_settings = GlobalSettings()
-
 
 def set_global_memory_type(memory_type):
-    global_settings.memory_type = MemoryType.from_str(memory_type)
+    GlobalSettings().memory_type = MemoryType.from_str(memory_type)
 
 
 class using_memory_type:
@@ -49,7 +48,7 @@ class using_memory_type:
         self.prev_mem_type = None
 
     def __enter__(self):
-        self.prev_mem_type = global_settings.memory_type
+        self.prev_mem_type = GlobalSettings().memory_type
         set_global_memory_type(self.mem_type)
 
     def __exit__(self, *_):
@@ -64,13 +63,13 @@ class ArrayInfo:
     """
     shape: tuple
     order: str
-    dtype: global_settings.xpy.dtype
+    dtype: GlobalSettings().xpy.dtype
     strides: tuple
 
     @staticmethod
     def from_interface(interface: dict) -> "ArrayInfo":
         out_shape = interface['shape']
-        out_type = global_settings.xpy.dtype(interface['typestr'])
+        out_type = GlobalSettings().xpy.dtype(interface['typestr'])
         out_order = "C"
         out_strides = None
 
@@ -234,7 +233,7 @@ def _strides_to_order(strides, dtype):
 
 
 def _order_to_strides(order, shape, dtype):
-    itemsize = global_settings.xpy.dtype(dtype).itemsize
+    itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
     if isinstance(shape, int):
         return (itemsize, )
 
@@ -265,7 +264,7 @@ def _get_size_from_shape(shape, dtype):
     if shape is None or dtype is None:
         return (None, None)
 
-    itemsize = global_settings.xpy.dtype(dtype).itemsize
+    itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
         shape = (shape, )
@@ -313,10 +312,15 @@ def _check_array_contiguity(ary):
             return True
 
         shape = ary_interface['shape']
+        if len(shape) == 1:
+            return True
         strides = ary_interface['strides']
-        dtype = global_settings.xpy.dtype(ary_interface['typestr'])
-        order = _strides_to_order(strides, dtype)
-        itemsize = global_settings.xpy.dtype(dtype).itemsize
+        dtype = GlobalSettings().xpy.dtype(ary_interface['typestr'])
+        try:
+            order = ary.order
+        except AttributeError:
+            order = _strides_to_order(strides, dtype)
+        itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
 
         # We check if the strides jump on the non contiguous dimension
         # does not correspond to the array dimension size, which indicates
@@ -376,7 +380,6 @@ def set_global_output_type(output_type):
 
     >>> import cuml
     >>> import cupy as cp
-    >>>
     >>> ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
     >>> ary = cp.asarray(ary)
     >>> prev_output_type = cuml.global_settings.output_type
@@ -408,18 +411,23 @@ def set_global_output_type(output_type):
         output_type = output_type.lower()
 
     # Check for allowed types. Allow 'cuml' to support internal estimators
-    if output_type not in [
-            'numpy', 'cupy', 'cudf', 'numba', 'cuml', "input", None
-    ]:
-        # Omit 'cuml' from the error message. Should only be used internally
-        raise ValueError('Parameter output_type must be one of "numpy", '
-                         '"cupy", cudf", "numba", "input" or None')
+    if (
+        output_type is not None
+        and output_type != 'cuml'
+        and output_type not in INTERNAL_VALID_OUTPUT_TYPES
+    ):
+        valid_output_types_str = ', '.join(
+            [f"'{x}'" for x in VALID_OUTPUT_TYPES]
+        )
+        raise ValueError(
+            f'output_type must be one of {valid_output_types_str}'
+            f' or None. Got: {output_type}'
+        )
 
-    global_settings.output_type = output_type
+    GlobalSettings().output_type = output_type
 
 
-@contextlib.contextmanager
-def using_output_type(output_type):
+class using_output_type:
     """
     Context manager method to set cuML's global output type inside a `with`
     statement. It gets reset to the prior value it had once the `with` code
@@ -462,10 +470,8 @@ def using_output_type(output_type):
 
     >>> import cuml
     >>> import cupy as cp
-    >>>
     >>> ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
     >>> ary = cp.asarray(ary)
-    >>>
     >>> with cuml.using_output_type('cudf'):
     ...     dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
     ...     dbscan_float.fit(ary)
@@ -485,17 +491,20 @@ def using_output_type(output_type):
     >>> dbscan_float2 = cuml.DBSCAN(eps=1.0, min_samples=1)
     >>> dbscan_float2.fit(ary)
     DBSCAN()
-    >>>
     >>> # cuML default output
     >>> dbscan_float2.labels_
     array([0, 1, 2], dtype=int32)
     >>> isinstance(dbscan_float2.labels_, cp.ndarray)
     True
-
     """
-    prev_output_type = global_settings.output_type
-    try:
-        set_global_output_type(output_type)
-        yield prev_output_type
-    finally:
-        global_settings.output_type = prev_output_type
+
+    def __init__(self, output_type):
+        self.output_type = output_type
+
+    def __enter__(self):
+        self.prev_output_type = GlobalSettings().output_type
+        set_global_output_type(self.output_type)
+        return self.prev_output_type
+
+    def __exit__(self, *_):
+        GlobalSettings().output_type = self.prev_output_type

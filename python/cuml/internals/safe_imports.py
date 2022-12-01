@@ -19,7 +19,6 @@ import importlib
 import traceback
 from cuml.internals.device_support import CPU_ENABLED, GPU_ENABLED
 from cuml.internals import logger
-from distutils.version import LooseVersion
 
 
 class UnavailableError(Exception):
@@ -204,10 +203,10 @@ class UnavailableMeta(type):
 
 def is_unavailable(obj):
     '''Helper to check if given symbol is actually a placeholder'''
-    return type(is_unavailable) == UnavailableMeta
+    return type(obj) is UnavailableMeta
 
 
-class NullContext:
+class UnavailableNullContext:
     '''A placeholder class for unavailable context managers
 
     This context manager will return a value which will throw an
@@ -232,7 +231,7 @@ class NullContext:
         pass
 
 
-def safe_import(module, msg=None, alt=None):
+def safe_import(module, *, msg=None, alt=None):
     '''A function used to import modules that may not be available
 
     This function will attempt to import a module with the given name, but it
@@ -280,7 +279,7 @@ def safe_import(module, msg=None, alt=None):
         return alt
 
 
-def safe_import_from(module, symbol, msg=None, alt=None):
+def safe_import_from(module, symbol, *, msg=None, alt=None):
     '''A function used to import symbols from modules that may not be available
 
     This function will attempt to import a symbol with the given name from
@@ -337,7 +336,7 @@ def safe_import_from(module, symbol, msg=None, alt=None):
         return alt
 
 
-def gpu_only_import(module, alt=None):
+def gpu_only_import(module, *, alt=None):
     '''A function used to import modules required only in GPU installs
 
     This function will attempt to import a module with the given name, but it
@@ -368,12 +367,12 @@ def gpu_only_import(module, alt=None):
     else:
         return safe_import(
             module,
-            msg=f'{module} is not installed in CPU-only installations',
+            msg=f'{module} is not installed in non GPU-enabled installations',
             alt=alt
         )
 
 
-def gpu_only_import_from(module, symbol, alt=None):
+def gpu_only_import_from(module, symbol, *, alt=None):
     '''A function used to import symbols required only in GPU installs
 
     This function will attempt to import a symbol from a module with the given
@@ -414,7 +413,7 @@ def gpu_only_import_from(module, symbol, alt=None):
         )
 
 
-def cpu_only_import(module, alt=None):
+def cpu_only_import(module, *, alt=None):
     '''A function used to import modules required only in CPU installs
 
     This function will attempt to import a module with the given name, but it
@@ -450,7 +449,7 @@ def cpu_only_import(module, alt=None):
         )
 
 
-def cpu_only_import_from(module, symbol, alt=None):
+def cpu_only_import_from(module, symbol, *, alt=None):
     '''A function used to import symbols required only in CPU installs
 
     This function will attempt to import a symbol from a module with the given

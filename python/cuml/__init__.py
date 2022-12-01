@@ -14,15 +14,14 @@
 # limitations under the License.
 #
 
-from cuml.internals.base import Base
-from cuml.internals.global_settings import has_cuda_gpu
+from cuml.internals.base import Base, UniversalBase
+from cuml.internals.available_devices import is_cuda_available
 
-## GPU only packages
+# GPU only packages
 
-if(has_cuda_gpu()):
+if(is_cuda_available()):
     import cuml.common.cuda as cuda
     from cuml.common.handle import Handle
-
 
     from cuml.cluster.dbscan import DBSCAN
     from cuml.cluster.kmeans import KMeans
@@ -56,7 +55,6 @@ if(has_cuda_gpu()):
 
     from cuml.linear_model.elastic_net import ElasticNet
     from cuml.linear_model.lasso import Lasso
-    # from cuml.linear_model.linear_regression import LinearRegression
     from cuml.linear_model.logistic_regression import LogisticRegression
     from cuml.linear_model.mbsgd_classifier import MBSGDClassifier
     from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
@@ -78,7 +76,8 @@ if(has_cuda_gpu()):
 
     from cuml.preprocessing.LabelEncoder import LabelEncoder
 
-    from cuml.random_projection.random_projection import GaussianRandomProjection
+    from cuml.random_projection.random_projection import \
+        GaussianRandomProjection
     from cuml.random_projection.random_projection import SparseRandomProjection
     from cuml.random_projection.random_projection import \
         johnson_lindenstrauss_min_dim
@@ -97,9 +96,11 @@ if(has_cuda_gpu()):
     from cuml.tsa.holtwinters import ExponentialSmoothing
 
     from cuml.common.pointer_utils import device_of_gpu_matrix
-    from cuml.internals.memory_utils import set_global_output_type, using_output_type
+    from cuml.internals.memory_utils import (
+        set_global_output_type, using_output_type
+    )
 
-## Universal packages
+# Universal packages
 
 from cuml.linear_model.linear_regression import LinearRegression
 
@@ -175,6 +176,7 @@ __all__ = [
     "TreeExplainer",
     "TSNE",
     "UMAP",
+    "UniversalBase",
     # Functions
     "johnson_lindenstrauss_min_dim",
     "make_arima",

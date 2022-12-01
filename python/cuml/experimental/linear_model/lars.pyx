@@ -84,7 +84,7 @@ class Lars(Base, RegressorMixin):
             for j=0..n_{col}-1
 
     Parameters
-    -----------
+    ----------
     fit_intercept : boolean (default = True)
         If True, Lars tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
@@ -97,7 +97,7 @@ class Lars(Base, RegressorMixin):
         The solver permutes the columns of X. Set `copy_X` to True to prevent
         changing the input data.
     fit_path : boolean (default = True)
-        Whether to return all the coefficients along the reularization path
+        Whether to return all the coefficients along the regularization path
         in the `coef_path_` attribute.
     precompute : bool, 'auto', or array-like with shape = (n_features, \
             n_features). (default = 'auto')
@@ -117,14 +117,15 @@ class Lars(Base, RegressorMixin):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.internals.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
-    -----------
+    ----------
     alphas_ : array of floats or doubles, shape = [n_alphas + 1]
         The maximum correlation at each step.
     active_ : array of ints shape = [n_alphas]
