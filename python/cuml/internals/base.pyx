@@ -34,10 +34,10 @@ from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.input_utils import (
     determine_array_type,
-    determine_array_memtype,
     input_to_cuml_array,
     input_to_host_array
 )
+from cuml.internals.memory_utils import determine_array_memtype
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_memory_type
 from cuml.internals.output_type import (
@@ -132,7 +132,7 @@ class Base(TagsMixin,
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
@@ -389,16 +389,10 @@ class Base(TagsMixin,
         """
 
         # Default to the global type
-        output_type = cuml.global_settings.output_type
         mem_type = cuml.global_settings.memory_type
 
-        # If it's None, default to our type
-        if mem_type in (None, MemoryType.mirror):
-            output_type = self.output_type
-
         # If we are input, get the type from the input
-        if output_type == 'input':
-            output_type = determine_array_type(inp)
+        if cuml.global_settings.output_type == 'input':
             mem_type = determine_array_memtype(inp)
 
         return mem_type

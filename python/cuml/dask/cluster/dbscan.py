@@ -43,7 +43,7 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     client : dask.distributed.Client
         Dask client to use
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
@@ -82,11 +82,11 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     @staticmethod
     @mnmg_import
     def _func_fit(out_dtype):
-        def _func(sessionId, data, verbose, **kwargs):
+        def _func(sessionId, data, **kwargs):
             from cuml.cluster.dbscan_mg import DBSCANMG as cumlDBSCAN
             handle = get_raft_comm_state(sessionId)["handle"]
 
-            return cumlDBSCAN(handle=handle, verbose=verbose, **kwargs
+            return cumlDBSCAN(handle=handle, **kwargs
                               ).fit(data, out_dtype=out_dtype)
         return _func
 
@@ -119,7 +119,6 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         dbscan_fit = [self.client.submit(DBSCAN._func_fit(out_dtype),
                                          comms.sessionId,
                                          data,
-                                         self.verbose,
                                          **self.kwargs,
                                          workers=[worker],
                                          pure=False)

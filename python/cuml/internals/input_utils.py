@@ -220,22 +220,6 @@ def determine_array_dtype(X):
     return dtype
 
 
-def determine_array_memtype(X):
-    try:
-        return X.mem_type
-    except AttributeError:
-        pass
-    if hasattr(X, '__cuda_array_interface__'):
-        return MemoryType.device
-    if hasattr(X, '__array_interface__'):
-        return MemoryType.host
-    if isinstance(X, (CudfDataFrame, CudfSeries)):
-        return MemoryType.device
-    if isinstance(X, (PandasDataFrame, PandasSeries)):
-        return MemoryType.device
-    return None
-
-
 def determine_array_type_full(X):
     """
     Returns a tuple of the array type, and a boolean if it is sparse
@@ -466,14 +450,13 @@ def input_to_host_array(X,
     Identical to input_to_cuml_array but it returns a host (NumPy array instead
     of CumlArray
     """
-    if not fail_on_null:
-        if isinstance(X, (CudfDataFrame, CudfSeries)):
-            try:
-                X = X.values
-            except ValueError:
-                X = X.astype('float64', copy=False)
-                X.fillna(cp.nan, inplace=True)
-                X = X.values
+    if not fail_on_null and isinstance(X, (CudfDataFrame, CudfSeries)):
+        try:
+            X = X.values
+        except ValueError:
+            X = X.astype('float64', copy=False)
+            X.fillna(cp.nan, inplace=True)
+            X = X.values
 
     out_data = input_to_cuml_array(X,
                                    order=order,
@@ -486,7 +469,7 @@ def input_to_host_array(X,
                                    force_contiguous=force_contiguous,
                                    convert_to_mem_type=MemoryType.host)
 
-    return out_data._replace(array=out_data.array.to_output("array"))
+    return out_data._replace(array=out_data.array.to_output("numpy"))
 
 
 def convert_dtype(X,

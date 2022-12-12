@@ -38,6 +38,10 @@ def _safe_solve(K, y):
         err_mode = geterr()["linalg"]
         seterr(linalg="raise")
         dual_coef = lapack.posv(K, y)
+        # Perform following check as a workaround for cusolver issue to be
+        # fixed in a future CUDA version
+        if cp.all(cp.isnan(dual_coef)):
+            raise np.linalg.LinAlgError
         seterr(linalg=err_mode)
     except np.linalg.LinAlgError:
         warnings.warn(
@@ -146,7 +150,7 @@ class KernelRidge(Base, RegressorMixin):
         by creating handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.internals.logger.level_*`.
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
     Attributes

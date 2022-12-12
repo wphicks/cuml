@@ -68,20 +68,22 @@ class LinearPredictMixin:
         Predicts `y` values for `X`.
 
         """
+        self.dtype = self.coef_.dtype
+
         if self.coef_ is None:
             raise ValueError(
                 "LinearModel.predict() cannot be called before fit(). "
                 "Please fit the model first."
             )
         self.dtype = self.coef_.dtype
-        if len(self.coef_.shape) == 2 and self.coef_.shape[1] > 1:
+        if len(self.coef_.shape) == 2 and self.coef_.shape[0] > 1:
             # Handle multi-target prediction in Python.
             coef_cp = input_to_cupy_array(self.coef_).array
             X_cp = input_to_cupy_array(
                 X,
                 check_dtype=self.dtype,
                 convert_to_dtype=(self.dtype if convert_dtype else None),
-                check_cols=self.n_cols
+                check_cols=self.n_features_in_
             ).array
             intercept_cp = input_to_cupy_array(self.intercept_).array
             preds_cp = X_cp @ coef_cp + intercept_cp
