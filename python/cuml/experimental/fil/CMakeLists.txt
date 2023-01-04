@@ -13,7 +13,19 @@
 # =============================================================================
 
 
+function(add_module_gpu_default FILENAME)
+    set (extra_args ${ARGN})
+    list(LENGTH extra_args extra_count)
+    if (${extra_count} GREATER 0 OR
+        ${CUML_UNIVERSAL} OR
+        ${CUML_GPU})
+      list(APPEND cython_sources
+           ${FILENAME})
+      set (cython_sources ${cython_sources} PARENT_SCOPE)
+    endif()
+endfunction()
 
+<<<<<<<< HEAD:python/cuml/experimental/fil/CMakeLists.txt
 set(cython_sources
     fil.pyx
 )
@@ -28,3 +40,16 @@ rapids_cython_create_modules(
 foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
   set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
 endforeach()
+========
+
+function(add_module_universal_default FILENAME)
+    set (extra_args ${ARGN})
+    list(LENGTH extra_args extra_count)
+    if (${extra_count} GREATER 0 OR
+        ${CUML_UNIVERSAL})
+      list(APPEND cython_sources
+           ${FILENAME})
+      set (cython_sources ${cython_sources} PARENT_SCOPE)
+    endif()
+endfunction()
+>>>>>>>> branch-23.02:python/cmake/ConfigureAlgorithmsHelpers.cmake

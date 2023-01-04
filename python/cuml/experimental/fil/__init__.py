@@ -13,4 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+<<<<<<<< HEAD:python/cuml/experimental/fil/__init__.py
 from cuml.experimental.fil.fil import ForestInference
+========
+
+GPU_ENABLED = True
+CPU_ENABLED = True
+>>>>>>>> branch-23.02:python/cuml/internals/device_support.py

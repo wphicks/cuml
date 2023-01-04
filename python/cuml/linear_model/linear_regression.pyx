@@ -39,13 +39,14 @@ from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
     cdef void olsFit(handle_t& handle,
                      float *input,
-                     int n_rows,
-                     int n_cols,
+                     size_t n_rows,
+                     size_t n_cols,
                      float *labels,
                      float *coef,
                      float *intercept,
@@ -56,8 +57,8 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
     cdef void olsFit(handle_t& handle,
                      double *input,
-                     int n_rows,
-                     int n_cols,
+                     size_t n_rows,
+                     size_t n_cols,
                      double *labels,
                      double *coef,
                      double *intercept,
@@ -290,8 +291,9 @@ class LinearRegression(LinearPredictMixin,
         }[algorithm]
 
     @generate_docstring()
-    def _fit(self, X, y, convert_dtype=True,
-             sample_weight=None) -> "LinearRegression":
+    @enable_device_interop
+    def fit(self, X, y, convert_dtype=True,
+            sample_weight=None) -> "LinearRegression":
         """
         Fit the model with X and y.
 
@@ -352,8 +354,8 @@ class LinearRegression(LinearPredictMixin,
 
             olsFit(handle_[0],
                    <float*>X_ptr,
-                   <int>n_rows,
-                   <int>self.n_features_in_,
+                   <size_t>n_rows,
+                   <size_t>self.n_features_in_,
                    <float*>y_ptr,
                    <float*>coef_ptr,
                    <float*>&c_intercept1,
@@ -366,8 +368,8 @@ class LinearRegression(LinearPredictMixin,
         else:
             olsFit(handle_[0],
                    <double*>X_ptr,
-                   <int>n_rows,
-                   <int>self.n_features_in_,
+                   <size_t>n_rows,
+                   <size_t>self.n_features_in_,
                    <double*>y_ptr,
                    <double*>coef_ptr,
                    <double*>&c_intercept2,
