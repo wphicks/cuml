@@ -91,6 +91,6 @@ function(find_and_configure_treelite)
 endfunction()
 
 find_and_configure_treelite(VERSION     3.0.1
-                        PINNED_TAG  cb09d539dce7e67f60cc33e4fac6b95b7185847a
+                        PINNED_TAG  9900b4884057993d51951bf6e5cef1f2bd50d2a2
                         EXCLUDE_FROM_ALL  ${CUML_EXCLUDE_TREELITE_FROM_ALL}
                         BUILD_STATIC_LIBS ${CUML_USE_TREELITE_STATIC})
