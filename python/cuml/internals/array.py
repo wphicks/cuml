@@ -546,6 +546,11 @@ class CumlArray():
     def item(self):
         return self._mem_type.xpy.asarray(self).item()
 
+    def reshape(self, newshape, *, order='C'):
+        return type(self).from_input(
+            self.to_output('array').reshape(newshape, order=order)
+        )
+
     @nvtx_annotate(message="common.CumlArray.to_output", category="utils",
                    domain="cuml_python")
     def to_output(

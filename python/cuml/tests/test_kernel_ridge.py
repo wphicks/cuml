@@ -14,7 +14,7 @@
 #
 from cuml.testing.utils import as_type
 from hypothesis.extra.numpy import arrays
-from hypothesis import given, settings, assume, strategies as st
+from hypothesis import given, settings, assume, reproduce_failure, strategies as st
 from sklearn.kernel_ridge import KernelRidge as sklKernelRidge
 import inspect
 import math
@@ -176,6 +176,7 @@ def array_strategy(draw):
     return as_type(type, X, Y)
 
 
+@reproduce_failure('6.65.0', b'AXicY2UEAQZGBiTAiMJDEcepjpGBGQAEVwAX')
 @given(kernel_arg_strategy(), array_strategy())
 @settings(deadline=None)
 def test_pairwise_kernels(kernel_arg, XY):

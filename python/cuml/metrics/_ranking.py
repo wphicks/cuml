@@ -15,19 +15,20 @@
 #
 
 import math
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 import cuml.internals
 from cuml.internals.safe_imports import cpu_only_import
 import typing
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.utils.validation import check_consistent_length
 cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
 
 
 @cuml.internals.api_return_generic(get_output_type=True)
 def precision_recall_curve(
-        y_true, probs_pred) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
+        y_true, probas_pred, *, pos_label=None, sample_weight=None) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
     """
     Compute precision-recall pairs for different probability thresholds
 
@@ -87,17 +88,16 @@ def precision_recall_curve(
 
     """
     y_true, n_rows, n_cols, ytype = \
-        input_to_cupy_array(y_true, check_dtype=[np.int32, np.int64,
+        input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,
                                                  np.float32, np.float64])
+    y_true = y_true.to_output('array')
 
-    y_score, _, _, _ = \
-        input_to_cupy_array(probs_pred, check_dtype=[np.int32, np.int64,
-                            np.float32, np.float64],
-                            check_rows=n_rows, check_cols=n_cols)
-
-    if cp.any(y_true) == 0:
-        raise ValueError("precision_recall_curve cannot be used when "
-                         "y_true is all zero.")
+    y_score = input_to_cuml_array(
+        probas_pred,
+        check_dtype=[np.int32, np.int64, np.float32, np.float64],
+        check_rows=n_rows,
+        check_cols=n_cols
+    )[0].to_output('array')
 
     fps, tps, thresholds = _binary_clf_curve(y_true, y_score)
     precision = cp.flip(tps/(tps+fps), axis=0)
@@ -161,11 +161,14 @@ def roc_auc_score(y_true, y_score):
 
 def _binary_clf_curve(y_true, y_score):
 
-    if y_true.dtype.kind == 'f' and np.any(y_true != y_true.astype(int)):
+    xpy = GlobalSettings().xpy
+
+    if y_true.dtype.kind == 'f' and xpy.any(y_true != y_true.astype(int)):
         raise ValueError("Continuous format of y_true  "
                          "is not supported.")
+    check_consistent_length(y_true, y_score, sample_weight)
 
-    ids = cp.argsort(-y_score)
+    ids = xpy.argsort(-y_score)
     sorted_score = y_score[ids]
 
     ones = y_true[ids].astype('float32')  # for calculating true positives
@@ -175,15 +178,15 @@ def _binary_clf_curve(y_true, y_score):
     group = _group_same_scores(sorted_score)
     num = int(group[-1])
 
-    tps = cp.zeros(num, dtype='float32')
-    fps = cp.zeros(num, dtype='float32')
+    tps = xpy.zeros(num, dtype='float32')
+    fps = xpy.zeros(num, dtype='float32')
 
     tps = _addup_x_in_group(group, ones, tps)
     fps = _addup_x_in_group(group, zeros, fps)
 
-    tps = cp.cumsum(tps)
-    fps = cp.cumsum(fps)
-    thresholds = cp.unique(y_score)
+    tps = xpy.cumsum(tps)
+    fps = xpy.cumsum(fps)
+    thresholds = xpy.unique(y_score)
     return fps, tps, thresholds
 
 

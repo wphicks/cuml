@@ -828,6 +828,7 @@ def test_precision_recall_curve_random(n_samples, dtype):
     precision_using_sk, recall_using_sk, thresholds_using_sk = \
         sklearn_precision_recall_curve(
             y_true, y_score)
+    print(precision_using_sk.shape, recall_using_sk.shape)
 
     precision, recall, thresholds = precision_recall_curve(
         y_true, y_score)
