@@ -133,7 +133,7 @@ def _build_and_save_xgboost(
     [unit_param(1), unit_param(5), quality_param(50), stress_param(90)],
 )
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
-@pytest.mark.skipif(has_xgboost(), reason="need to install xgboost")
+@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_fil_classification(
     train_device,
     infer_device,
