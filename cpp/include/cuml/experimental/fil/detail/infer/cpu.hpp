@@ -116,7 +116,7 @@ std::enable_if_t<D==raft_proto::device_type::cpu, void> infer(
  * the above template. Alternatively, if we see some way in which the above is
  * actually an abuse of SFINAE that was accidentally permitted by gcc 9, the
  * root cause should be corrected. */
-#ifndef CUML_CUDA_ENABLED
+#ifndef CUML_ENABLE_GPU
 template<
   raft_proto::device_type D,
   bool has_categorical_nodes,
@@ -140,7 +140,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
 ) {
   throw raft_proto::gpu_unsupported("Tried to use GPU inference in CPU-only build");
 }
-#endif
+#endif  // CUML_ENABLE_GPU
 
 /* This macro is invoked here to declare all standard specializations of this
  * template as extern. This ensures that this (relatively complex) code is

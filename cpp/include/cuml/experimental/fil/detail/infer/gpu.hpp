@@ -30,7 +30,7 @@ namespace inference {
 
 /* Note(wphicks): This ifdef is a workaround for a possible gcc 11
  * compiler bug. See cpu.hpp for more details */
-#ifdef CUML_CUDA_ENABLED
+#ifdef CUML_ENABLE_GPU
 /* The CUDA-free header declaration of the GPU infer template */
 template<
   raft_proto::device_type D,
@@ -53,7 +53,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
 );
-#endif
+#endif  // CUML_ENABLE_GPU
 
 }
 }
