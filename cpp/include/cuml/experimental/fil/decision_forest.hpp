@@ -108,6 +108,7 @@ struct decision_forest {
   decision_forest() :
     nodes_{},
     root_node_indexes_{},
+    tl_node_id_mapping_{},
     vector_output_{},
     categorical_storage_{},
     num_features_{},
@@ -157,6 +158,7 @@ struct decision_forest {
   decision_forest(
     raft_proto::buffer<node_type>&& nodes,
     raft_proto::buffer<index_type>&& root_node_indexes,
+    std::vector<int>&& tl_node_id_mapping,
     index_type num_features,
     index_type num_outputs=index_type{2},
     bool has_categorical_nodes = false,
@@ -171,6 +173,7 @@ struct decision_forest {
   ) :
     nodes_{nodes},
     root_node_indexes_{root_node_indexes},
+    tl_node_id_mapping_{tl_node_id_mapping},
     vector_output_{vector_output},
     categorical_storage_{categorical_storage},
     num_features_{num_features},
@@ -203,6 +206,8 @@ struct decision_forest {
   /** The number of trees in the model */
   auto num_trees() const { return root_node_indexes_.size(); }
   auto has_vector_leaves() const { return vector_output_.has_value(); }
+
+  auto tl_orig_id_mapping() const {return tl_node_id_mapping_; }
 
   /** The operation used for postprocessing all outputs for a single row */
   auto row_postprocessing() const { return row_postproc_; }
@@ -305,6 +310,7 @@ struct decision_forest {
   raft_proto::buffer<node_type> nodes_;
   /** The index of the root node for each tree in the forest */
   raft_proto::buffer<index_type> root_node_indexes_;
+  std::vector<int> tl_node_id_mapping_;
   /** Buffer of outputs for all leaves in vector-leaf models */
   std::optional<raft_proto::buffer<io_type>> vector_output_;
   /** Buffer of elements used as backing data for bitsets which specify

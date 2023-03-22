@@ -67,7 +67,7 @@ struct decision_forest_builder {
         if (cur_tree_size_ % alignment_ != index_type{}) {
           auto padding = (alignment_ - cur_tree_size_ % alignment_);
           for (auto i = index_type{}; i < padding; ++i) {
-            add_node(typename node_type::threshold_type{});
+            add_node(typename node_type::threshold_type{}, -1);
           }
         }
       }
@@ -83,6 +83,7 @@ struct decision_forest_builder {
   void add_categorical_node(
     iter_t vec_begin,
     iter_t vec_end,
+    int tl_node_id,
     bool default_to_distant_child=false,
     typename node_type::metadata_storage_type feature = typename node_type::metadata_storage_type{},
     typename node_type::offset_type offset = typename node_type::offset_type{}
@@ -110,6 +111,7 @@ struct decision_forest_builder {
 
     add_node(
       node_value,
+      tl_node_id,
       false,
       default_to_distant_child,
       true,
@@ -123,7 +125,8 @@ struct decision_forest_builder {
   template<typename iter_t>
   void add_leaf_vector_node(
     iter_t vec_begin,
-    iter_t vec_end
+    iter_t vec_end,
+    int tl_node_id
   ) {
     auto leaf_index = typename node_type::index_type(vector_output_.size() / output_size_);
     std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
@@ -135,6 +138,7 @@ struct decision_forest_builder {
       typename node_type::metadata_storage_type{},
       typename node_type::offset_type{}
     );
+    tl_orig_ids_.push_back(tl_node_id);
     ++cur_tree_size_;
   }
 
@@ -142,6 +146,7 @@ struct decision_forest_builder {
   template<typename value_t>
   void add_node(
     value_t val,
+    int tl_node_id,
     bool is_leaf_node=true,
     bool default_to_distant_child=false,
     bool is_categorical_node=false,
@@ -155,6 +160,7 @@ struct decision_forest_builder {
     nodes_.emplace_back(
       val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset
     );
+    tl_orig_ids_.push_back(tl_node_id);
     ++cur_tree_size_;
   }
 
@@ -223,6 +229,7 @@ struct decision_forest_builder {
         device,
         stream
       },
+      std::vector<int>{tl_orig_ids_},   // TODO(hcho3): Use RAFT buffer!
       num_feature,
       num_class,
       max_num_categories_ != 0,
@@ -269,6 +276,8 @@ struct decision_forest_builder {
   std::vector<index_type> root_node_indexes_;
   std::vector<typename node_type::threshold_type> vector_output_;
   std::vector<typename node_type::index_type> categorical_storage_;
+
+  std::vector<int> tl_orig_ids_;
 };
 
 }

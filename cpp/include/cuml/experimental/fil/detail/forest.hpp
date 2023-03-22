@@ -38,6 +38,10 @@ struct forest {
     return nodes_ + root_node_indexes_[tree_index];
   }
 
+  HOST DEVICE auto get_node_offset(const node_type* node) const {
+    return static_cast<index_type>(node - nodes_);
+  }
+
   /* Return the number of trees in this forest */
   HOST DEVICE auto tree_count() const {
     return num_trees_;

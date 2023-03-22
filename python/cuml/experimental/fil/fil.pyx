@@ -21,6 +21,7 @@ import pathlib
 import treelite.sklearn
 import warnings
 from libcpp cimport bool
+from libcpp.vector cimport vector
 from libc.stdint cimport uint32_t, uintptr_t
 
 from cuml.common.device_selection import using_device_type
@@ -88,6 +89,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
         bool has_vector_leaves() except +
         row_op row_postprocessing() except +
         element_op elem_postprocessing() except +
+        vector[int] tl_orig_id_mapping() except +
 
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
@@ -229,6 +231,9 @@ cdef class ForestInference_impl():
                 output_shape = (n_rows, self.model.num_trees(), self.model.num_outputs())
             else:
                 output_shape = (n_rows, self.model.num_trees())
+        elif output_type == "leaf_id":
+            output_type_enum = output_kind.leaf_id
+            output_shape = (n_rows, self.model.num_trees())
         else:
             raise ValueError(f"Unrecognized output_type: {output_type}")
         if preds is None:
@@ -309,6 +314,25 @@ cdef class ForestInference_impl():
             chunk_size=chunk_size,
             output_dtype=output_dtype
         )
+
+    def predict_leaf(
+            self,
+            X,
+            *,
+            preds=None,
+            chunk_size=None,
+            output_dtype=None):
+        return self._predict(
+            X,
+            output_type="leaf_id",
+            preds=preds,
+            chunk_size=chunk_size,
+            output_dtype=output_dtype
+        )
+
+    def get_node_id_mapping(self):
+        return list(self.model.tl_orig_id_mapping())
+ 
 
 def _handle_legacy_fil_args(func):
     @functools.wraps(func)
@@ -1246,3 +1270,57 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         return self.forest.predict_per_tree(
             X, preds=preds, chunk_size=chunk_size
         )
+
+    @nvtx.annotate(
+        message='ForestInference.predict_per_tree',
+        domain='cuml_python'
+    )
+    def predict_leaf(
+            self,
+            X,
+            *,
+            preds=None,
+            chunk_size=None) -> CumlArray:
+        """
+        Output the ID of the leaf node for each tree.
+
+        Parameters
+        ----------
+        X
+            The input data of shape Rows X Features. This can be a numpy
+            array, cupy array, Pandas/cuDF Dataframe or any other array type
+            accepted by cuML. FIL is optimized for C-major arrays (e.g.
+            numpy/cupy arrays). Inputs whose datatype does not match the
+            precision of the loaded model (float/double) will be converted
+            to the correct datatype before inference. If this input is in a
+            memory location that is inaccessible to the current device type
+            (as set with e.g. the `using_device_type` context manager),
+            it will be copied to the correct location. This copy will be
+            distributed across as many CUDA streams as are available
+            in the stream pool of the model's RAFT handle.
+        preds
+            If non-None, outputs will be written in-place to this array.
+            Therefore, if given, this should be a C-major array of shape
+            n_rows * n_trees.
+            Classes with a datatype (float/double) corresponding to the
+            precision of the model. If None, an output array of the correct
+            shape and type will be allocated and returned.
+        chunk_size : int
+            The number of rows to simultaneously process in one iteration
+            of the inference algorithm. Batches are further broken down into
+            "chunks" of this size when assigning available threads to tasks.
+            The choice of chunk size can have a substantial impact on
+            performance, but the optimal choice depends on model and
+            hardware and is difficult to predict a priori. In general,
+            larger batch sizes benefit from larger chunk sizes, and smaller
+            batch sizes benefit from small chunk sizes. On GPU, valid
+            values are powers of 2 from 1 to 32. On CPU, valid values are
+            any power of 2, but little benefit is expected above a chunk size
+            of 512.
+        """
+        return self.forest.predict_leaf(
+            X, preds=preds, chunk_size=chunk_size
+        )
+
+    def get_node_id_mapping(self):
+        return self.forest.get_node_id_mapping()

@@ -120,17 +120,33 @@ void infer_kernel_cpu(
         auto tree_output = std::conditional_t<
           has_vector_leaves, typename node_t::index_type, typename node_t::threshold_type
         >{};
-        if constexpr (has_nonlocal_categories) {
-          tree_output = evaluate_tree<has_vector_leaves>(
-            forest.get_tree_root(tree_index),
-            input + row_index * col_count,
-            categorical_data
-          );
+        auto leaf_node = static_cast<node_t const*>(nullptr);
+        if (output_type == output_kind::leaf_id) {
+          if constexpr (has_nonlocal_categories) {
+            leaf_node = evaluate_tree<has_vector_leaves, true>(
+                forest.get_tree_root(tree_index),
+                input + row_index * col_count,
+                categorical_data
+            );
+          } else {
+            leaf_node = evaluate_tree<has_vector_leaves, has_categorical_nodes, true>(
+                forest.get_tree_root(tree_index),
+                input + row_index * col_count
+            );
+          }
         } else {
-          tree_output = evaluate_tree<has_vector_leaves, has_categorical_nodes>(
-            forest.get_tree_root(tree_index),
-            input + row_index * col_count
-          );
+          if constexpr (has_nonlocal_categories) {
+            tree_output = evaluate_tree<has_vector_leaves, false>(
+                forest.get_tree_root(tree_index),
+                input + row_index * col_count,
+                categorical_data
+            );
+          } else {
+            tree_output = evaluate_tree<has_vector_leaves, has_categorical_nodes, false>(
+                forest.get_tree_root(tree_index),
+                input + row_index * col_count
+            );
+          }
         }
         if (output_type == output_kind::default_kind) {
           if constexpr (has_vector_leaves) {
@@ -175,6 +191,11 @@ void infer_kernel_cpu(
                 + tree_index
             ] = tree_output;
           }
+        } else if (output_type == output_kind::leaf_id) {
+          output[
+              row_index * num_tree
+              + tree_index
+          ] = static_cast<typename forest_t::io_type>(forest.get_node_offset(leaf_node));
         }  // Predict type
       }  // Trees
     }  // Rows
