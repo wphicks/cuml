@@ -31,7 +31,7 @@ namespace detail {
  * @tparam has_vector_leaves Whether or not this tree has vector leaves
  * @tparam has_categorical nodes Whether or not this tree has any nodes with
  * categorical splits
- * @tparam evaluate_leaf Whether to return the leaf node ID instead of the node's output
+ * @tparam evaluate_leaf whether to return the leaf node's address instead of the node's output
  * @tparam node_t The type of nodes in this tree
  * @tparam io_t The type used for input to and output from this tree (typically
  * either floats or doubles)
@@ -93,7 +93,7 @@ HOST DEVICE auto evaluate_tree(
  * the positive and negative categories for each categorical node.
  *
  * @tparam has_vector_leaves Whether or not this tree has vector leaves
- * @tparam evaluate_leaf whether to return the leaf node ID instead of the node's output
+ * @tparam evaluate_leaf whether to return the leaf node's address instead of the node's output
  * @tparam node_t The type of nodes in this tree
  * @tparam io_t The type used for input to and output from this tree (typically
  * either floats or doubles)

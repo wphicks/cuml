@@ -68,12 +68,6 @@ struct forest_model {
     }, decision_forest_);
   }
 
-  auto tl_orig_id_mapping() {
-    return std::visit([](auto&& concrete_forest) {
-      return concrete_forest.tl_orig_id_mapping();
-    }, decision_forest_);
-  }
-
   /** The operation used for postprocessing all outputs for a single row */
   auto row_postprocessing() {
     return std::visit([](auto&& concrete_forest) {

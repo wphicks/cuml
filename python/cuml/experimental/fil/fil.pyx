@@ -89,7 +89,6 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
         bool has_vector_leaves() except +
         row_op row_postprocessing() except +
         element_op elem_postprocessing() except +
-        vector[int] tl_orig_id_mapping() except +
 
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
@@ -329,9 +328,6 @@ cdef class ForestInference_impl():
             chunk_size=chunk_size,
             output_dtype=output_dtype
         )
-
-    def get_node_id_mapping(self):
-        return list(self.model.tl_orig_id_mapping())
  
 
 def _handle_legacy_fil_args(func):
@@ -1321,6 +1317,3 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         return self.forest.predict_leaf(
             X, preds=preds, chunk_size=chunk_size
         )
-
-    def get_node_id_mapping(self):
-        return self.forest.get_node_id_mapping()

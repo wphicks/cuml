@@ -255,7 +255,7 @@ infer_kernel(
           output_workspace[
               row_index * tree_count
               + tree_index
-          ] = static_cast<typename forest_t::io_type>(forest.get_node_offset(leaf_node));
+          ] = static_cast<typename forest_t::io_type>(forest.get_node_id(leaf_node));
         }
       }
 
@@ -355,7 +355,7 @@ infer_kernel(
           }
         }
       }
-    } else {
+    } else if (output_type == output_kind::leaf_id) {
       for (
         auto task_index = threadIdx.x;
         task_index < task_count_rounded_up;

@@ -99,7 +99,7 @@ void infer_kernel_cpu(
   index_type output_workspace_size{};
   if (output_type == output_kind::default_kind) {
     output_workspace_size = row_count * num_outputs * num_grove;
-  } else if (output_type == output_kind::per_tree) {
+  } else if (output_type == output_kind::per_tree || output_type == output_kind::leaf_id) {
     output_workspace_size = index_type{};
   }
   auto output_workspace = std::vector<output_t>(output_workspace_size, output_t{});
@@ -195,7 +195,7 @@ void infer_kernel_cpu(
           output[
               row_index * num_tree
               + tree_index
-          ] = static_cast<typename forest_t::io_type>(forest.get_node_offset(leaf_node));
+          ] = static_cast<typename forest_t::io_type>(forest.get_node_id(leaf_node));
         }  // Predict type
       }  // Trees
     }  // Rows

@@ -138,7 +138,7 @@ struct decision_forest_builder {
       typename node_type::metadata_storage_type{},
       typename node_type::offset_type{}
     );
-    tl_orig_ids_.push_back(tl_node_id);
+    node_id_mapping_.push_back(tl_node_id);
     ++cur_tree_size_;
   }
 
@@ -160,7 +160,7 @@ struct decision_forest_builder {
     nodes_.emplace_back(
       val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset
     );
-    tl_orig_ids_.push_back(tl_node_id);
+    node_id_mapping_.push_back(tl_node_id);
     ++cur_tree_size_;
   }
 
@@ -199,7 +199,8 @@ struct decision_forest_builder {
     max_tree_size_{},
     nodes_{},
     root_node_indexes_{},
-    vector_output_{} {
+    vector_output_{},
+    node_id_mapping_{} {
   }
 
   /* Return the FIL decision forest built by this builder */
@@ -229,7 +230,12 @@ struct decision_forest_builder {
         device,
         stream
       },
-      std::vector<int>{tl_orig_ids_},   // TODO(hcho3): Use RAFT buffer!
+      raft_proto::buffer{
+        raft_proto::buffer{node_id_mapping_.data(), node_id_mapping_.size()},
+        mem_type,
+        device,
+        stream
+      },
       num_feature,
       num_class,
       max_num_categories_ != 0,
@@ -277,7 +283,7 @@ struct decision_forest_builder {
   std::vector<typename node_type::threshold_type> vector_output_;
   std::vector<typename node_type::index_type> categorical_storage_;
 
-  std::vector<int> tl_orig_ids_;
+  std::vector<index_type> node_id_mapping_;
 };
 
 }
