@@ -24,7 +24,9 @@ namespace fil {
 template <typename node_t>
 struct subtree {
   using node_type = node_t;
-  subtree(node_t parent, node_t child0=node_t{}, node_t child1=node_t{})
+  subtree(node_t* nodes)
+    : parent_{nodes[0]}, child0_{nodes[1]}, child1_{nodes[2]} { }
+  subtree(node_t parent=node_t{}, node_t child0=node_t{}, node_t child1=node_t{})
     : parent_{parent}, child0_{child0}, child1_{child1} { }
   auto const& parent() const {
     return parent_;

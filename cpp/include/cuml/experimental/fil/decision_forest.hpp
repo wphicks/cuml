@@ -70,6 +70,11 @@ struct decision_forest {
    * The in-memory layout of nodes in this forest
    */
   auto constexpr static const layout = layout_v;
+
+  /**
+   * Whether or not this forest is laid out using subtrees
+   */
+  auto constexpr static const uses_subtrees = is_subtree_layout(layout);
   /**
    * The type of the forest object which is actually passed to the CPU/GPU
    * for inference
@@ -85,6 +90,15 @@ struct decision_forest {
    * The type of nodes within the forest
    */
   using node_type = typename forest_type::node_type;
+  /**
+   * If this forest uses a subtree layout, the subtree type, otherwise the node
+   * type
+   */
+  using subtree_or_node_type = std::conditional_t<
+    uses_subtrees,
+    subtree<typename forest_type::node_type>,
+    typename forest_type::node_type
+  >;
   /**
    * The type used for input and output to the model
    */
@@ -155,7 +169,7 @@ struct decision_forest {
    * logarithm_one_plus_exp
    */
   decision_forest(
-    raft_proto::buffer<node_type>&& nodes,
+    raft_proto::buffer<subtree_or_node_type>&& nodes,
     raft_proto::buffer<index_type>&& root_node_indexes,
     index_type num_features,
     index_type num_outputs=index_type{2},
@@ -318,7 +332,7 @@ struct decision_forest {
 
  private:
   /** The nodes for all trees in the forest */
-  raft_proto::buffer<node_type> nodes_;
+  raft_proto::buffer<subtree_or_node_type> nodes_;
   /** The index of the root node for each tree in the forest */
   raft_proto::buffer<index_type> root_node_indexes_;
   /** Buffer of outputs for all leaves in vector-leaf models */

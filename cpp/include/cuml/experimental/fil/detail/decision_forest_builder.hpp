@@ -56,6 +56,9 @@ struct decision_forest_builder {
 
   /* The type for nodes in the given decision_forest type */
   using node_type = typename decision_forest_t::node_type;
+  /* The type for subtrees if subtrees are used else the type for nodes in the
+   * given decision_forest type */
+  using subtree_or_node_type = typename decision_forest_t::subtree_or_node_type;
 
   /* Add a root node, indicating the beginning of a new tree */
   void start_new_tree() {
@@ -127,7 +130,7 @@ struct decision_forest_builder {
   ) {
     auto leaf_index = typename node_type::index_type(vector_output_.size() / output_size_);
     std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
-    nodes_.emplace_back(
+    staged_nodes_.emplace_back(
       leaf_index,
       true,
       false,
@@ -135,6 +138,7 @@ struct decision_forest_builder {
       typename node_type::metadata_storage_type{},
       typename node_type::offset_type{}
     );
+    flush_staged_to_subtrees();
     ++cur_tree_size_;
   }
 
@@ -152,9 +156,10 @@ struct decision_forest_builder {
     if (is_inclusive) {
       val = std::nextafter(val, std::numeric_limits<value_t>::infinity());
     }
-    nodes_.emplace_back(
+    staged_nodes_.emplace_back(
       val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset
     );
+    flush_staged_to_subtrees();
     ++cur_tree_size_;
   }
 
@@ -183,7 +188,7 @@ struct decision_forest_builder {
     ) :
     cur_tree_size_{},
     max_num_categories_{max_num_categories},
-    alignment_{std::lcm(align_bytes, index_type(sizeof(node_type)))},
+    alignment_{std::lcm(align_bytes, index_type(sizeof(subtree_or_node_type)))},
     output_size_{1},
     element_postproc_{},
     average_factor_{},
@@ -191,7 +196,8 @@ struct decision_forest_builder {
     bias_{},
     postproc_constant_{},
     max_tree_size_{},
-    nodes_{},
+    subtrees_or_nodes_{},
+    staged_nodes_{},
     root_node_indexes_{},
     vector_output_{} {
   }
@@ -212,7 +218,7 @@ struct decision_forest_builder {
 #pragma GCC diagnostic ignored "-Wnarrowing"
     return decision_forest_t{
       raft_proto::buffer{
-        raft_proto::buffer{nodes_.data(), nodes_.size()},
+        raft_proto::buffer{subtrees_or_nodes_.data(), subtrees_or_nodes_.size()},
         mem_type,
         device,
         stream
@@ -265,10 +271,32 @@ struct decision_forest_builder {
   double postproc_constant_;
   index_type max_tree_size_;
 
-  std::vector<node_type> nodes_;
+  std::vector<subtree_or_node_type> subtrees_or_nodes_;
+  std::vector<node_type> staged_nodes_;
   std::vector<index_type> root_node_indexes_;
   std::vector<typename node_type::threshold_type> vector_output_;
   std::vector<typename node_type::index_type> categorical_storage_;
+
+  void flush_staged_to_subtrees() {
+    if (staged_nodes_.size() == 1 && staged_nodes_.back().is_leaf()) {
+      for (
+        auto i = staged_nodes_.size();
+        i < subtree_size_for_layout(decision_forest_t::layout);
+        ++i
+      ) {
+        staged_nodes_.emplace_back();
+      }
+    }
+    if (staged_nodes_.size() == subtree_size_for_layout(decision_forest_t::layout)) {
+      if constexpr (is_subtree_layout(decision_forest_t::layout)) {
+        subtrees_or_nodes_.emplace_back(staged_nodes_.data());
+      } else {
+        subtrees_or_nodes_.push_back(staged_nodes_.back());
+      }
+      staged_nodes_.clear();
+      ++cur_tree_size_;
+    }
+  }
 };
 
 }
