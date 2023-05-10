@@ -18,25 +18,30 @@ namespace ML {
 namespace experimental {
 namespace fil {
 enum class tree_layout : unsigned char {
-  depth_first=0,
-  breadth_first=1,
-  subtree_depth_first=2,
-  subtree_breadth_first=3
+  depth_first           = 0,
+  breadth_first         = 1,
+  subtree_depth_first   = 2,
+  subtree_breadth_first = 3
 };
 
-auto constexpr is_subtree_layout(tree_layout layout) {
-  return (layout == tree_layout::subtree_depth_first || layout == tree_layout::subtree_breadth_first);
+auto constexpr is_subtree_layout(tree_layout layout)
+{
+  return (layout == tree_layout::subtree_depth_first ||
+          layout == tree_layout::subtree_breadth_first);
 }
-auto constexpr is_depth_first_layout(tree_layout layout) {
+auto constexpr is_depth_first_layout(tree_layout layout)
+{
   return (layout == tree_layout::depth_first || layout == tree_layout::subtree_depth_first);
 }
-auto constexpr is_breadth_first_layout(tree_layout layout) {
+auto constexpr is_breadth_first_layout(tree_layout layout)
+{
   return (layout == tree_layout::breadth_first || layout == tree_layout::subtree_breadth_first);
 }
-auto constexpr subtree_size_for_layout(tree_layout layout) {
+auto constexpr subtree_size_for_layout(tree_layout layout)
+{
   return int{!is_subtree_layout(layout)} + int{is_subtree_layout(layout)} * 3;
 }
 
-}
-}
-}
+}  // namespace fil
+}  // namespace experimental
+}  // namespace ML
