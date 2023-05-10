@@ -483,8 +483,6 @@ struct treelite_importer {
                 builder.add_node(typename forest_model_t::io_type(output[0]), true);
               }
             } else {
-              // TODO (wphicks): Is all we have to do for subtrees divide
-              // offsets by the size of the subtree?
               if (node.is_categorical()) {
                 auto categories = node.get_categories();
                 builder.add_categorical_node(std::begin(categories),

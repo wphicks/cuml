@@ -112,13 +112,12 @@ struct decision_forest_builder {
   {
     auto leaf_index = typename node_type::index_type(vector_output_.size() / output_size_);
     std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
-    staged_nodes_.emplace_back(leaf_index,
-                               true,
-                               false,
-                               false,
-                               typename node_type::metadata_storage_type{},
-                               typename node_type::offset_type{});
-    flush_staged_to_subtrees();
+    nodes_.emplace_back(leaf_index,
+                        true,
+                        false,
+                        false,
+                        typename node_type::metadata_storage_type{},
+                        typename node_type::offset_type{});
     ++cur_tree_size_;
   }
 
@@ -134,9 +133,8 @@ struct decision_forest_builder {
     bool is_inclusive                                 = false)
   {
     if (is_inclusive) { val = std::nextafter(val, std::numeric_limits<value_t>::infinity()); }
-    staged_nodes_.emplace_back(
+    nodes_.emplace_back(
       val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset);
-    flush_staged_to_subtrees();
     ++cur_tree_size_;
   }
 
@@ -238,30 +236,10 @@ struct decision_forest_builder {
   double postproc_constant_;
   index_type max_tree_size_;
 
-  std::vector<subtree_or_node_type> subtrees_or_nodes_;
-  std::vector<node_type> staged_nodes_;
+  std::vector<node_type> nodes_;
   std::vector<index_type> root_node_indexes_;
   std::vector<typename node_type::threshold_type> vector_output_;
   std::vector<typename node_type::index_type> categorical_storage_;
-
-  void flush_staged_to_subtrees()
-  {
-    if (staged_nodes_.size() == 1 && staged_nodes_.back().is_leaf()) {
-      for (auto i = staged_nodes_.size(); i < subtree_size_for_layout(decision_forest_t::layout);
-           ++i) {
-        staged_nodes_.emplace_back();
-      }
-    }
-    if (staged_nodes_.size() == subtree_size_for_layout(decision_forest_t::layout)) {
-      if constexpr (is_subtree_layout(decision_forest_t::layout)) {
-        subtrees_or_nodes_.emplace_back(staged_nodes_.data());
-      } else {
-        subtrees_or_nodes_.push_back(staged_nodes_.back());
-      }
-      staged_nodes_.clear();
-      ++cur_tree_size_;
-    }
-  }
 };
 
 }  // namespace detail
