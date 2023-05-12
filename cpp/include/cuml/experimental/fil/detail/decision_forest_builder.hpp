@@ -146,10 +146,12 @@ struct decision_forest_builder {
     bool default_to_distant_child                     = false,
     bool is_categorical_node                          = false,
     typename node_type::metadata_storage_type feature = typename node_type::metadata_storage_type{},
+    typename node_type::offset_type offset            = typename node_type::offset_type{},
     bool is_inclusive                                 = false)
   {
     if (is_inclusive) { val = std::nextafter(val, std::numeric_limits<value_t>::infinity()); }
-    return node_type{val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, 0u};
+    return node_type{
+      val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset};
   }
 
   /* Set the element-wise postprocessing operation for this model */
