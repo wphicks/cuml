@@ -35,12 +35,60 @@ namespace experimental {
 namespace fil {
 
 namespace detail {
+template <typename T>
+struct staging_subtree {
+  T parent;
+  T near_child;
+  T far_child;
+};
+
+template <typename T>
+struct tree_children {
+  T near;
+  T far;
+};
+
+template <typename tl_threshold_t, typename tl_output_t>
+auto get_tl_child_ids(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree, int node_id)
+{
+  auto tl_left_id  = tl_tree.LeftChild(node_id);
+  auto tl_right_id = tl_tree.RightChild(node_id);
+  auto tl_operator = tl_tree.ComparisonOp(node_id);
+  auto result      = tree_children<int>{0, 0};
+  if (tl_tree.SplitType(node_id) == treelite::SplitFeatureType::kCategorical) {
+    if (tl_tree.CategoriesListRightChild(node_id)) {
+      result = tree_children<int>{tl_left_id, tl_right_id};
+    } else {
+      result = tree_children<int>{tl_right_id, tl_left_id};
+    }
+  } else {
+    if (tl_operator == treelite::Operator::kLT || tl_operator == treelite::Operator::kLE) {
+      result = tree_children<int>{tl_right_id, tl_left_id};
+    } else if (tl_operator == treelite::Operator::kGT || tl_operator == treelite::Operator::kGE) {
+      result = tree_children<int>{tl_left_id, tl_right_id};
+    }
+  }
+  return result;
+}
+
+template <typename tl_threshold_t, typename tl_output_t, typename node_index_t>
+auto construct_subtree(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree,
+                       node_index_t node_id = node_index_t{})
+{
+  auto tl_left_id  = tl_tree.LeftChild(node_id);
+  auto tl_right_id = tl_tree.RightChild(node_id);
+  auto tl_operator = tl_tree.ComparisonOp(node_id);
+  auto tl_node =
+    treelite_node<tl_threshold_t, tl_output_t>{tl_tree, node_index_t{}, index_type{}, index_type{}};
+}
+
 /** A template for storing nodes in either a depth or breadth-first traversal
  */
 template <tree_layout layout, typename T>
 struct traversal_container {
+  using value_type = std::conditional_t<is_subtree_layout(layout), staging_subtree<T>, T>;
   using backing_container_t =
-    std::conditional_t<layout == tree_layout::depth_first, std::stack<T>, std::queue<T>>;
+    std::conditional_t<is_depth_first_layout(layout), std::stack<T>, std::queue<T>>;
   void add(T const& val) { data_.push(val); }
   void add(T const& hot, T const& distant)
   {
@@ -124,23 +172,9 @@ struct treelite_importer {
 
     auto default_distant()
     {
-      auto result        = false;
       auto default_child = tree.DefaultChild(node_id);
-      if (is_categorical()) {
-        if (tree.CategoriesListRightChild(node_id)) {
-          result = (default_child == tree.RightChild(node_id));
-        } else {
-          result = (default_child == tree.LeftChild(node_id));
-        }
-      } else {
-        auto tl_operator = tree.ComparisonOp(node_id);
-        if (tl_operator == treelite::Operator::kLT || tl_operator == treelite::Operator::kLE) {
-          result = (default_child == tree.LeftChild(node_id));
-        } else {
-          result = (default_child == tree.RightChild(node_id));
-        }
-      }
-      return result;
+      auto children      = detail::get_tl_child_ids(tree, node_id);
+      return default_child == children.far;
     }
 
     auto threshold() { return tree.Threshold(node_id); }
@@ -156,6 +190,38 @@ struct treelite_importer {
     {
       auto tl_operator = tree.ComparisonOp(node_id);
       return tl_operator == treelite::Operator::kGT || tl_operator == treelite::Operator::kLE;
+    }
+  };
+
+  template <typename tl_threshold_t, typename tl_output_t>
+  struct treelite_subtree {
+    treelite::Tree<tl_threshold_t, tl_output_t> const& tree;
+    int root_node_id;
+    int near_child_node_id;
+    int far_child_node_id;
+    index_type parent_subtree_index;
+    index_type own_index;
+
+    auto is_leaf()
+    {
+      return (tree.IsLeaf(root_node_id) || tree.IsLeaf(near_child_node_id) ||
+              tree.IsLeaf(far_child_node_id));
+    }
+
+    auto tl_children()
+    {
+      auto result = std::vector<int>{};
+      result.reserve(4);
+      if (!is_leaf()) {
+        for (auto node_id : {near_child_node_id, far_child_node_id}) {
+          if (!tree.IsLeaf(node_id)) {
+            auto children = detail::get_tl_child_ids(tree, node_id);
+            result.push_back(children.near);
+            result.push_back(children.far);
+          }
+        }
+      }
+      return result;
     }
   };
 
@@ -179,29 +245,18 @@ struct treelite_importer {
       lambda(tl_node);
 
       if (!tl_tree.IsLeaf(node_id)) {
-        auto tl_left_id  = tl_tree.LeftChild(node_id);
-        auto tl_right_id = tl_tree.RightChild(node_id);
-        auto tl_operator = tl_tree.ComparisonOp(node_id);
-        if (!tl_node.is_categorical()) {
-          if (tl_operator == treelite::Operator::kLT || tl_operator == treelite::Operator::kLE) {
-            to_be_visited.add(tl_right_id, tl_left_id);
-          } else if (tl_operator == treelite::Operator::kGT ||
-                     tl_operator == treelite::Operator::kGE) {
-            to_be_visited.add(tl_left_id, tl_right_id);
-          } else {
-            throw model_import_error("Unrecognized Treelite operator");
-          }
-        } else {
-          if (tl_tree.CategoriesListRightChild(node_id)) {
-            to_be_visited.add(tl_left_id, tl_right_id);
-          } else {
-            to_be_visited.add(tl_right_id, tl_left_id);
-          }
-        }
+        auto children = detail::get_tl_child_ids(tl_tree, node_id);
+        to_be_visited.add(children.near, children.far);
         parent_indices.add(cur_index, cur_index);
       }
       ++cur_index;
     }
+  }
+
+  template <typename tl_threshold_t, typename tl_output_t, typename lambda_t>
+  void subtree_for_each(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree,
+                        lambda_t&& lambda)
+  {
   }
 
   template <typename tl_threshold_t, typename tl_output_t, typename iter_t, typename lambda_t>
