@@ -138,6 +138,20 @@ struct decision_forest_builder {
     ++cur_tree_size_;
   }
 
+  /* Construct a node and return it without adding it to the model */
+  template <typename value_t>
+  auto construct_node(
+    value_t val,
+    bool is_leaf_node                                 = true,
+    bool default_to_distant_child                     = false,
+    bool is_categorical_node                          = false,
+    typename node_type::metadata_storage_type feature = typename node_type::metadata_storage_type{},
+    bool is_inclusive                                 = false)
+  {
+    if (is_inclusive) { val = std::nextafter(val, std::numeric_limits<value_t>::infinity()); }
+    return node_type{val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, 0u};
+  }
+
   /* Set the element-wise postprocessing operation for this model */
   void set_element_postproc(element_op val) { element_postproc_ = val; }
   /* Set the row-wise postprocessing operation for this model */
