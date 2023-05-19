@@ -74,7 +74,15 @@ using specialization_variant =
                specialization_types<tree_layout::breadth_first, false, false>,
                specialization_types<tree_layout::breadth_first, false, true>,
                specialization_types<tree_layout::breadth_first, true, false>,
-               specialization_types<tree_layout::breadth_first, true, true>>;
+               specialization_types<tree_layout::breadth_first, true, true>,
+               specialization_types<tree_layout::subtree_depth_first, false, false>,
+               specialization_types<tree_layout::subtree_depth_first, false, true>,
+               specialization_types<tree_layout::subtree_depth_first, true, false>,
+               specialization_types<tree_layout::subtree_depth_first, true, true>,
+               specialization_types<tree_layout::subtree_depth_first, false, false>,
+               specialization_types<tree_layout::subtree_breadth_first, false, true>,
+               specialization_types<tree_layout::subtree_breadth_first, true, false>,
+               specialization_types<tree_layout::subtree_breadth_first, true, true>>;
 
 }  // namespace detail
 }  // namespace fil

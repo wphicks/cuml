@@ -40,6 +40,7 @@ struct staging_subtree {
   T parent;
   T near_child;
   T far_child;
+  bool is_distant_child = false;
 };
 
 template <typename T>
@@ -75,21 +76,11 @@ auto get_tl_child_ids(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree
 
 template <typename tl_threshold_t, typename tl_output_t>
 auto get_tl_subtree_from_parent_node(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree,
-                                     int parent_node_id)
+                                     int parent_node_id,
+                                     bool is_distant_child)
 {
   auto children = get_tl_child_ids(tl_tree, parent_node_id);
-  return detail::staging_subtree{parent_node_id, children.near, children.far};
-}
-
-template <typename tl_threshold_t, typename tl_output_t, typename node_index_t>
-auto construct_subtree(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree,
-                       node_index_t node_id = node_index_t{})
-{
-  auto tl_left_id  = tl_tree.LeftChild(node_id);
-  auto tl_right_id = tl_tree.RightChild(node_id);
-  auto tl_operator = tl_tree.ComparisonOp(node_id);
-  auto tl_node =
-    treelite_node<tl_threshold_t, tl_output_t>{tl_tree, node_index_t{}, index_type{}, index_type{}};
+  return detail::staging_subtree{parent_node_id, children.near, children.far, is_distant_child};
 }
 
 /** A template for storing nodes in either a depth or breadth-first traversal
@@ -211,6 +202,7 @@ struct treelite_importer {
     int far_child_node_id;
     index_type parent_subtree_index;
     index_type own_index;
+    bool is_child_of_distant_node;
 
     auto is_leaf()
     {
@@ -220,15 +212,23 @@ struct treelite_importer {
 
     auto tl_children()
     {
-      auto result = std::vector<int>{};
-      result.reserve(4);
+      auto result = std::vector<std::optional<int>>{};
       if (!is_leaf()) {
-        for (auto node_id : {near_child_node_id, far_child_node_id}) {
-          if (!tree.IsLeaf(node_id)) {
-            auto children = detail::get_tl_child_ids(tree, node_id);
-            result.push_back(children.near);
-            result.push_back(children.far);
-          }
+        if (tree.IsLeaf(near_child_node_id)) {
+          result.push_back(std::nullopt);
+          result.push_back(std::nullopt);
+        } else {
+          auto children = detail::get_tl_child_ids(tree, near_child_node_id);
+          result.push_back(children.near);
+          result.push_back(children.far);
+        }
+        if (tree.IsLeaf(near_child_node_id)) {
+          result.push_back(std::nullopt);
+          result.push_back(std::nullopt);
+        } else {
+          auto children = detail::get_tl_child_ids(tree, far_child_node_id);
+          result.push_back(children.near);
+          result.push_back(children.far);
         }
       }
       return result;
@@ -284,14 +284,17 @@ struct treelite_importer {
                                                                       id_subtree.near_child,
                                                                       id_subtree.far_child,
                                                                       parent_indices.next(),
-                                                                      cur_index};
+                                                                      cur_index,
+                                                                      id_subtree.is_distant_child};
       lambda(tl_subtree);
 
       if (!tl_subtree.is_leaf()) {
-        auto children = tl_tree.tl_children();
-        for (auto&& child : children) {
-          to_be_visited.add(get_tl_subtree_from_parent_node(tl_tree, child));
-          parent_indices.add(cur_index);
+        auto children = tl_subtree.tl_children();
+        for (auto i = 0; i < children.size(); ++i) {
+          if (children[i]) {
+            to_be_visited.add(get_tl_subtree_from_parent_node(tl_tree, *(children[i]), i > 1));
+            parent_indices.add(cur_index);
+          }
         }
       }
       ++cur_index;
@@ -309,6 +312,17 @@ struct treelite_importer {
     });
   }
 
+  template <typename tl_threshold_t, typename tl_output_t, typename iter_t, typename lambda_t>
+  void subtree_transform(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree,
+                         iter_t output_iter,
+                         lambda_t&& lambda)
+  {
+    subtree_for_each(tl_tree, [&output_iter, &lambda](auto&& tl_subtree) {
+      *output_iter = lambda(tl_subtree);
+      ++output_iter;
+    });
+  }
+
   template <typename tl_threshold_t, typename tl_output_t, typename T, typename lambda_t>
   auto node_accumulate(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree,
                        T init,
@@ -317,6 +331,17 @@ struct treelite_importer {
     auto result = init;
     node_for_each(tl_tree,
                   [&result, &lambda](auto&& tl_node) { result = lambda(result, tl_node); });
+    return result;
+  }
+
+  template <typename tl_threshold_t, typename tl_output_t, typename T, typename lambda_t>
+  auto subtree_accumulate(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree,
+                          T init,
+                          lambda_t&& lambda)
+  {
+    auto result = init;
+    subtree_for_each(
+      tl_tree, [&result, &lambda](auto&& tl_subtree) { result = lambda(result, tl_subtree); });
     return result;
   }
 
@@ -330,18 +355,40 @@ struct treelite_importer {
   }
 
   template <typename tl_threshold_t, typename tl_output_t>
+  auto get_subtrees(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree)
+  {
+    auto result = std::vector<treelite_node<tl_threshold_t, tl_output_t>>{};
+    subtree_transform(tl_tree, std::back_inserter(result), [](auto&& subtree) { return subtree; });
+    return result;
+  }
+
+  template <typename tl_threshold_t, typename tl_output_t>
   auto get_offsets(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree)
   {
-    auto result = std::vector<index_type>(tl_tree.num_nodes);
-    auto nodes  = get_nodes(tl_tree);
-    for (auto i = index_type{}; i < nodes.size(); ++i) {
-      // Current index should always be greater than or equal to parent index.
-      // Later children will overwrite values set by earlier children, ensuring
-      // that most distant offset is used.
-      result[nodes[i].parent_index] = index_type{i - nodes[i].parent_index};
-    }
+    if constexpr (is_subtree_layout(layout)) {
+      auto subtrees = get_subtrees(tl_tree);
+      auto result   = std::vector<index_type>(3 * subtrees.size());
+      for (auto i = index_type{}; i < subtrees.size(); ++i) {
+        // Ensure every subtree root node has offset 1
+        result[3 * i] = index_type{1u};
+        // Record subtree offsets for all other nodes
+        result[3 * subtrees[i].parent_subtree_index + 1 + subtrees[i].is_child_of_distant_node] =
+          index_type{i - subtrees[i].parent_subtree_index};
+      }
 
-    return result;
+      return result;
+    } else {
+      auto result = std::vector<index_type>(tl_tree.num_nodes);
+      auto nodes  = get_nodes(tl_tree);
+      for (auto i = index_type{}; i < nodes.size(); ++i) {
+        // Current index should always be greater than or equal to parent index.
+        // Later children will overwrite values set by earlier children, ensuring
+        // that most distant offset is used.
+        result[nodes[i].parent_index] = index_type{i - nodes[i].parent_index};
+      }
+
+      return result;
+    }
   }
 
   template <typename lambda_t>
@@ -391,8 +438,14 @@ struct treelite_importer {
   auto get_tree_sizes(treelite::Model const& tl_model)
   {
     auto result = std::vector<index_type>{};
-    tree_transform(
-      tl_model, std::back_inserter(result), [](auto&& tree) { return tree.num_nodes; });
+    if constexpr (is_subtree_layout(layout)) {
+      tree_transform(
+        tl_model, std::back_inserter(result), [](auto&& tree) { return tree.num_nodes; });
+    } else {
+      tree_transform(tl_model, std::back_inserter(result), [this](auto&& tree) {
+        return get_subtrees(tree).size();
+      });
+    }
     return result;
   }
 
@@ -562,7 +615,6 @@ struct treelite_importer {
         using forest_model_t = std::variant_alternative_t<variant_index, decision_forest_variant>;
         auto builder =
           detail::decision_forest_builder<forest_model_t>(max_num_categories, align_bytes);
-        auto tree_count = num_trees(tl_model);
         auto tree_index = index_type{};
         tree_for_each(tl_model, [this, &builder, &tree_index, &offsets](auto&& tree) {
           builder.start_new_tree();
@@ -735,6 +787,14 @@ auto import_from_treelite_model(treelite::Model const& tl_model,
       break;
     case tree_layout::breadth_first:
       result = treelite_importer<tree_layout::breadth_first>{}.import(
+        tl_model, align_bytes, use_double_precision, dev_type, device, stream);
+      break;
+    case tree_layout::subtree_depth_first:
+      result = treelite_importer<tree_layout::subtree_depth_first>{}.import(
+        tl_model, align_bytes, use_double_precision, dev_type, device, stream);
+      break;
+    case tree_layout::subtree_breadth_first:
+      result = treelite_importer<tree_layout::subtree_breadth_first>{}.import(
         tl_model, align_bytes, use_double_precision, dev_type, device, stream);
       break;
   }
