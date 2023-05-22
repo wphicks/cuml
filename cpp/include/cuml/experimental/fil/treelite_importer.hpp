@@ -204,10 +204,21 @@ struct treelite_importer {
     index_type own_index;
     bool is_child_of_distant_node;
 
-    auto is_leaf()
+    auto is_leaf(int subtree_node_index)
     {
-      return (tree.IsLeaf(root_node_id) || tree.IsLeaf(near_child_node_id) ||
-              tree.IsLeaf(far_child_node_id));
+      return tree.isLeaf(tl_id_from_index(subtree_node_index));
+    }
+    auto is_leaf() { return (is_leaf(0) || is_leaf(1) || is_leaf(2)); }
+
+    auto get_output(int i)
+    {
+      auto result = std::vector<tl_output_t>{};
+      if (tree.HasLeafVector(node_id)) {
+        result = tree.LeafVector(node_id);
+      } else {
+        result.push_back(tree.LeafValue(node_id));
+      }
+      return result;
     }
 
     auto tl_children()
@@ -230,6 +241,19 @@ struct treelite_importer {
           result.push_back(children.near);
           result.push_back(children.far);
         }
+      }
+      return result;
+    }
+
+   private:
+    auto tl_id_from_index(int subtree_node_index)
+    {
+      auto result = root_node_id;
+      switch (subtree_node_index) {
+        case 0: result = root_node_id; break;
+        case 1: result = near_child_node_id; break;
+        case 2: result = far_child_node_id; break;
+        default: throw model_import_error("Invalid index. Subtrees contain only 3 nodes.");
       }
       return result;
     }
