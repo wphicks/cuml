@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <utility>
 #include <cuda_runtime.h>
+#include <raft/core/resource/cuda_stream_pool.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/mdbuffer.cuh>
@@ -337,8 +338,11 @@ using is_output_mdspan_or_mdbuffer = all_of_either<
 
 template<typename lambda_t>
 using is_batchable = std::conjunction<
-  // Must not return anything
-  std::is_same<typename lambda_traits<lambda_t>::return_type, void>,
+  // Must return only mdarrays or mdbuffers
+  tuple_type_forwarder<
+    raft::is_array_interface,
+    typename lambda_traits<lambda_t>::return_type
+  >,
   // First argument must be raft::resources
   std::is_same<
     std::remove_cv_t<std::remove_reference_t<only_first_type<
@@ -346,10 +350,10 @@ using is_batchable = std::conjunction<
     >>>,
     raft::resources
   >,
-  // All arguments must be mdspan or mdbuffer types
+  // All arguments must be mdspans or mdbuffers with const elements
   tuple_all_of_either<
-    raft::is_mdspan,
-    raft::is_mdbuffer,
+    raft::is_input_mdspan,
+    raft::is_input_mdbuffer,
     typename all_but_first_type<
       typename lambda_traits<lambda_t>::args_tuple_type
     >::type
@@ -368,35 +372,19 @@ struct batchable_lambda_traits {
   using arg_types = all_but_first_type<
     typename lambda_traits<lambda_t>::args_tuple_type
   >;
-  using input_types = tuple_if_types_t<
-    is_input_mdspan_or_mdbuffer,
-    arg_types
-  >;
-  using output_types = tuple_if_types_t<
-    is_output_mdspan_or_mdbuffer,
-    arg_types
-  >;
-};
-
-template <
-  typename lambda_t,
-  std::enable_if_t<
-    std::is_same_v<
-      std::remove_cv_t<std::remove_reference_t<only_first_type<
-        typename lambda_traits<lambda_t>::args_tuple_type
-      >>>,
-      raft::resources
-    >
-  >* = nullptr
->
-struct raft_lambda_inputs {
-  // Drop first argument; it is the raft::resources object
-  using type = all_but_first_type<
+  using input_types = typename all_but_first_type<
     typename lambda_traits<lambda_t>::args_tuple_type
+  >::type;
+  using return_type = typename lambda_traits<lambda_t>::return_type;
+
+  using output_types = std::conditional_t<
+    is_tuple_v<return_type>,
+    return_type,
+    std::tuple<return_type>
   >;
 };
 
-}
+}  // namespace detail
 
 template <
   raft::memory_type MemType,
@@ -410,6 +398,8 @@ struct batched_functor :
     detail::batchable_lambda_traits<lambda_t>::input_types;
   using output_types = typename
     detail::batchable_lambda_traits<lambda_t>::output_types;
+  using return_type = typename
+    detail::batchable_lambda_traits<lambda_t>::return_type;
 
   auto constexpr static const memory_type = MemType;
 
@@ -444,21 +434,66 @@ struct batched_functor :
       raft::mdarray<
         typename Ts::value_type,
         typename Ts::extents_type,
-        // If layout is contiguous, use it. Otherwise use C-contiguous
-        std::conditional_t<
-          std::disjunction_v<
-            std::is_same<typename Ts::layout_type, raft::layout_c_contiguous>,
-            std::is_same<typename Ts::layout_type, raft::layout_f_contiguous>
-          >,
-          typename Ts::layout_type,
-          raft::layout_c_contiguous
-        >,
+        // Layout right is guaranteed to return an mdspan of the same layout
+        // when sliced, but the same is not true for other layouts. For any
+        // layout without this property, we may need to copy the data in order
+        // to get a view of *only* the data in the current batch with the
+        // mdspan type expected by the callable. By using layout_right here, we
+        // at least ensure that a copy is not required to construct the
+        // original sliced view of the input batch and then copy if necessary
+        // to match the expected mdspan type.
+        raft::layout_right,
         typename raft::default_buffer_container_policy<
           typename Ts::value_type
         >::template container_policy<memory_type>
       >...
     >;
   };
+
+  template<typename T>
+  struct input_buffer_type_constructor;
+
+  template<typename... Ts>
+  struct input_buffer_type_constructor<std::tuple<Ts...>> {
+    using type = std::tuple<
+      std::conditional_t<
+        raft::is_input_mdbuffer_v<Ts>,
+        Ts,
+        raft::mdbuffer<
+          typename Ts::element_type,
+          typename Ts::extents_type,
+          typename Ts::layout_type,
+          raft::default_buffer_container_policy<
+            typename Ts::element_type
+          >
+        >
+      >...
+    >;
+  };
+  using input_buffer_type = typename input_buffer_type_constructor<
+    input_types
+  >::type;
+
+  template <std::size_t... I>
+  auto constexpr get_input_memory_types(std::index_sequence<I...>) {
+    return std::array<std::optional<raft::memory_type>, std::tuple_size_v<input_types>> {
+      []() {
+        auto result = std::optional<raft::memory_type>{};
+        if constexpr (raft::is_mdbuffer_v<std::tuple_element_t<I, input_types>>) {
+          result = std::nullopt;
+        } else {
+          result = std::tuple_element_t<I, input_types>::accessor_policy::mem_type;
+        }
+        return result;
+      }()...
+    };
+  }
+
+  auto constexpr get_input_memory_types() {
+    return get_input_memory_types(
+      std::make_index_sequence<std::tuple_size_v<input_types>>()
+    );
+  }
 
 
  public:
@@ -477,10 +512,9 @@ struct batched_functor :
   friend std::shared_ptr<batched_functor<memory_type, lambda_t>> as_batched_functor(lambda_t&& lambda);
 
   struct batched_output_proxy {
-    batched_output_proxy(output_types&& output) : output_{std::move(output)} {}
-
     private:
      output_types output_;
+     std::shared_ptr<batched_functor<MemType, lambda_t>> functor_;
   };
 
   template<
@@ -489,23 +523,21 @@ struct batched_functor :
     std::enable_if_t<raft::is_mdspan_v<Args...>>* = nullptr
   >
   auto operator()(raft::resources const& res, FirstArg&& first_arg, Args&&... args) {
-    // Create input and output batch spaces if they do not yet exist
+    auto input_batch_size = size_type{first_arg.extent(0)};
+
+    // Create input batch workspace if it does not exist
     if (!input_batch_.has_value()) {
       auto lock = std::unique_lock<std::mutex>{mtx_};
       if (!input_batch_.has_value()) {
-        input_batch_ = create_batch<input_batch_type>(
-          res, 
-          detail::filter_tuple<raft::is_input_mdspan>(std::forward_as_tuple(first_arg, args...))
-        );
-        output_batch_ = create_batch<output_batch_type>(
-          res, 
-          detail::filter_tuple<raft::is_output_mdspan>(std::forward_as_tuple(first_arg, args...))
-        );
+        record_input_initializer_streams(res);
+        input_batch_ = create_input_batch(res, first_arg, args...);
       }
     }
 
-    // Grow input and output batch spaces if they are not large enough
-    auto input_batch_size = size_type{first_arg.extent(0)};
+    // Input batch workspace must be allocated before proceeding
+    synchronize_input_initializer_streams(res);
+
+    // Grow input batch workspace if it is not large enough
     if (
       cur_batch_size_ + input_batch_size >
       size_type{std::get<0>(input_batch_).extent(0)}
@@ -515,21 +547,7 @@ struct batched_functor :
         cur_batch_size_ + input_batch_size >
         size_type{std::get<0>(input_batch_).extent(0)}
       ) {
-        // TODO: Process current batch
-        input_batch_ = create_batch<input_batch_type>(
-          res, 
-          detail::filter_tuple<raft::is_input_mdspan>(
-            std::forward_as_tuple(first_arg, args...)
-          ),
-          cur_batch_size_ + input_batch_size
-        );
-        output_batch_ = create_batch<output_batch_type>(
-          res, 
-          detail::filter_tuple<raft::is_output_mdspan>(
-            std::forward_as_tuple(first_arg, args...)
-          ),
-          cur_batch_size_ + input_batch_size
-        );
+        process_batch(res);
       }
     }
 
@@ -544,86 +562,271 @@ struct batched_functor :
       }
       // TODO: Copy inputs
       cur_batch_size_ += input_batch_size;
-
       // TODO: Generate and return output proxies
     }
   }
 
  private:
 
-  template <typename extents_t, typename rank_t, rank_t batch_rank, rank_t... I>
-  auto static grow_extents(
-    extents_t const& extents,
+  template <typename out_extents_t, typename in_extents_t, typename rank_t, rank_t batch_rank, rank_t... I>
+  static auto grow_extents(
+    in_extents_t&& extents,
     std::integer_sequence<rank_t, batch_rank, I...>,
     size_type target_batch_dim = size_type{}
   ) {
-    auto batch_dim = extents.extent(batch_rank);
+    auto batch_dim = typename out_extents_t::size_type{extents.extent(batch_rank)};
     batch_dim = target_batch_dim > batch_dim ? target_batch_dim : batch_dim;
     batch_dim += std::max(
-      batch_dim + batch_dim / typename extents_t::size_type{2}, 
-      batch_dim + typename extents_t::size_type{1}
+      batch_dim + batch_dim / typename out_extents_t::size_type{2}, 
+      batch_dim + typename out_extents_t::size_type{1}
     );
-    return raft::make_extents(
+    return out_extents_t{
       batch_dim,
       extents.extent(I)...
-    );
+    };
   }
 
   /* Compute new extent values  with the first (batch) dimension increased by
    * a factor of 1.5. If target_batch_dim is greater than the current batch
    * dimension, grow to 1.5 times target_batch_dim instead */
-  template <typename extents_t>
-  auto static grow_extents(
-    extents_t const& extents,
+  template <typename out_extents_t, typename in_extents_t>
+  static auto grow_extents(
+    in_extents_t&& extents,
     size_type target_batch_dim = size_type{}
   ) {
-    return grow_extents(
+    return grow_extents<out_extents_t>(
       extents,
-      std::integer_sequence<typename extents_t::rank_type, extents.rank()>{},
+      std::integer_sequence<typename in_extents_t::rank_type, extents.rank()>{},
       target_batch_dim
     );
   }
 
-  template <typename batch_t, typename... mdspan_ts, std::size_t... I>
-  auto static create_batch(
+  template<typename args_tuple_t, std::size_t... I>
+  static auto create_input_batch(
     raft::resources const& res,
-    std::tuple<mdspan_ts...> args,
-    std::index_sequence<I...>,
-    size_type target_batch_dim = size_type{}
+    args_tuple_t&& args_tuple,
+    std::index_sequence<I...>
   ) {
     return std::make_tuple(
-      typename std::tuple_element<I, batch_t>::type{
+      [&res](auto&& arg) {
+        using array_type = std::tuple_element_t<I, input_batch_type>;
+        return array_type{
+          res,
+          typename array_type::mapping_type{
+            grow_extents<typename array_type::extents_type>(arg.extents())
+          },
+          typename array_type::container_policy_type{}
+        };
+      }()...
+    );
+  }
+
+  template<typename... Args>
+  static auto create_input_batch(raft::resources const& res, Args&&... args) {
+    return create_input_batch(
+      res,
+      std::forward_as_tuple(args...),
+      std::make_index_sequence<sizeof...(Args)>()
+    );
+  }
+
+  void record_input_initializer_streams(raft::resources const& res) {
+    record_streams(res, input_initializer_streams_);
+  }
+  void synchronize_input_initializer_streams(raft::resources const& res) {
+    synchronize_if_required(res, input_initializer_streams_);
+  }
+  void record_input_streams(raft::resources const& res) {
+    record_streams(res, input_streams_);
+  }
+  void synchronize_input_streams(raft::resources const& res) {
+    synchronize_if_required(res, input_streams_);
+  }
+  void record_output_initializer_streams(raft::resources const& res) {
+    record_streams(res, input_initializer_streams_);
+  }
+  void synchronize_output_initializer_streams(raft::resources const& res) {
+    synchronize_if_required(res, output_initializer_streams_);
+  }
+  void record_processing_streams(raft::resources const& res) {
+    record_streams(res, processing_streams_);
+  }
+  void synchronize_processing_streams(raft::resources const& res) {
+    synchronize_if_required(res, processing_streams_);
+  }
+  void record_output_streams(raft::resources const& res) {
+    record_streams(res, output_streams_);
+  }
+
+  static void record_streams(raft::resources const& res, std::set<cudaStream_t>& stream_set) {
+    stream_set.insert(raft::resource::get_cuda_stream(res).value());
+    if (raft::resource::is_stream_pool_initialized(res)) {
+      for (
+        auto stream_idx = std::size_t{};
+        stream_idx < raft::resource::get_stream_pool_size(res);
+        ++stream_idx
+      ) {
+        stream_set.insert(
+          raft::resource::get_stream_from_stream_pool(res, stream_idx).value());
+      }
+    }
+  }
+
+  static void synchronize(std::set<cudaStream_t>& stream_set) {
+    while (stream_set.size() != std::size_t{}) {
+      for (auto stream : stream_set) {
+        auto status = cudaStreamQuery(stream);
+        if (status != cudaErrorNotReady) {
+          if (stream_set.erase(stream) != std::size_t{}) {
+            if (status != cudaErrorInvalidResourceHandle) { RAFT_CUDA_TRY(status); }
+            break;  // Do not continue to iterate on modified set
+          }
+        }
+      }
+    }
+  }
+
+  static void synchronize_if_required(raft::resources const& res, std::set<cudaStream_t>& stream_set) {
+    if(
+      raft::resource::is_stream_pool_initialized(res) ||
+      stream_set.size() != 1 || (
+        stream_set.size() == 1 &&
+        *std::begin(stream_set) != raft::resource::get_cuda_stream(res).value()
+      )
+    ) {
+      synchronize(stream_set);
+    }
+  }
+
+  void process_batch(raft::resources const& res) {
+    auto input_buffers = get_input_buffers(res);
+    auto result = [this, input_buffers]() {
+      if constexpr(detail::is_tuple_v<return_type>) {
+        return lambda_(
+          std::apply(
+            [](auto&&... buffer) {
+              return std::make_tuple(
+                buffer.view()...
+              );
+            },
+            input_buffers
+          )
+        );
+      } else {
+        return std::make_tuple(
+          lambda_(
+            std::apply(
+              [](auto&&... buffer) {
+                return std::make_tuple(
+                  buffer.view()...
+                );
+              },
+              input_buffers
+            )
+          )
+        );
+      }
+    }();
+    move_result_to_output_batch(
+      result,
+      std::make_index_sequence<std::tuple_size_v<output_types>>()
+    );
+  }
+
+  template<typename results_t, std::size_t... I>
+  void move_result_to_output_batch(
+    results_t&& results,
+    std::index_sequence<I...>
+  ) {
+    output_batch_ = std::make_tuple(
+      [](auto&& mda) {
+        if constexpr (
+          std::is_same_v<
+            std::tuple_element_t<I, results_t>,
+            std::tuple_element_t<I, output_batch_type>
+          >
+        ) {
+          return std::move(mda);
+        } else {
+          // TODO: If output batch is big enough, copy in result. Otherwise,
+          // allocate new mdarray, copy to it, and return it
+        }
+      }(std::get<I>(results))...
+    );
+  }
+
+  template<typename results_t>
+  void move_results_to_output_batch(results_t&& results) {
+  }
+
+  template <std::size_t... I>
+  auto get_input_buffers(raft::resources const& res, std::index_sequence<I...>) {
+    return std::make_tuple(
+      std::tuple_element_t<I, input_buffer_type>{
         res,
-        typename std::tuple_element<I, batch_t>::type::mapping_type{
-          grow_extents(std::get<I>(args).extents(), target_batch_dim)
+        raft::mdbuffer{
+          slice_to_batch(std::get<I>(*input_batch_).view(), cur_batch_size_.load())
         },
-        typename std::tuple_element<
-          I, batch_t
-        >::type::container_policy_type{}
+        std::get<I>(get_input_memory_types())
       }...
     );
   }
 
-  template <typename batch_t, typename... mdspan_ts>
-  auto static create_batch(
-    raft::resources const& res,
-    std::tuple<mdspan_ts...> mds_tuple,
-    size_type target_batch_dim = size_type{}
-  ) {
-    return create_batch(
+  auto get_input_buffers(raft::resources const& res) {
+    return get_input_buffers(
       res,
-      mds_tuple,
-      std::make_index_sequence<sizeof...(mdspan_ts)>{},
-      target_batch_dim
+      std::index_sequence<std::tuple_size_v<input_batch_type>>{}
     );
+  }
+
+  template<typename extents_t, typename rank_t, rank_t batch_rank, rank_t... I>
+  static auto slice_extents(
+    extents_t&& extents,
+    size_type batch_dim,
+    std::integer_sequence<rank_t, batch_rank, I...>
+  ) {
+    return extents_t{
+      typename extents_t::size_type{batch_dim},
+      extents.extent(I)...
+    };
+  }
+
+  template <typename extents_t>
+  static auto slice_extents(
+    extents_t&& extents,
+    size_type batch_dim
+  ) {
+    return slice_extents<extents_t>(
+      extents,
+      batch_dim,
+      std::integer_sequence<typename extents_t::rank_type, extents.rank()>{}
+    );
+  }
+
+  template <typename mdspan_t>
+  static auto slice_to_batch(mdspan_t mds, size_type batch_size) {
+    // TODO(wphicks): Replace this when submdspan is available
+    if constexpr (
+      std::is_same_v<typename mdspan_t::layout_type, raft::layout_right>
+    ) {
+      auto new_extents = mds.extents();
+      return raft::make_mdspan(
+        mds.data_handle(),
+        slice_extents(mds.extents(), batch_size)
+      );
+    }
   }
 
   lambda_t lambda_;
   std::optional<input_batch_type> input_batch_;
   std::optional<output_batch_type> output_batch_;
-  size_type cur_batch_size_;
+  std::atomic<size_type> cur_batch_size_;
   std::mutex mtx_;
+  std::set<cudaStream_t> input_initializer_streams_;
   std::set<cudaStream_t> input_streams_;
+  std::set<cudaStream_t> output_initializer_streams_;
+  std::set<cudaStream_t> processing_streams_;
+  std::set<cudaStream_t> output_streams_;
 };
 
 template<raft::memory_type MemType, typename lambda_t>
