@@ -423,6 +423,8 @@ struct batched_functor :
         // deallocation, which *may* occur on some other stream, by replacing
         // input_batch_.
         detail::synchronize_all_resource_streams(res);
+        // No need to synchronize streams from this resources object again later
+        processing_streams_.clear();
         input_batch_ = create_input_batch(res, first_arg, args..., size_type{});
       }
     }
