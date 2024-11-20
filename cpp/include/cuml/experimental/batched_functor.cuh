@@ -1,6 +1,7 @@
 #include <array>
 #include <memory>
 #include <mutex>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <cuda_runtime.h>
@@ -385,6 +386,13 @@ struct batchable_lambda_traits {
   >;
 };
 
+void synchronize_all_resource_streams(raft::resources const& res) {
+  raft::resource::sync_stream(res);
+  if (raft::resource::is_stream_pool_initialized(res)) {
+    raft::resource::sync_stream_pool(res);
+  }
+}
+
 }  // namespace detail
 
 template <
@@ -596,31 +604,28 @@ struct batched_functor :
   auto operator()(raft::resources const& res, FirstArg&& first_arg, Args&&... args) {
     auto input_batch_size = size_type{first_arg.extent(0)};
 
+    // Must always synchronize initialization before input copy
+    // Must always synchronize input copy before processing
+    // Must always synchronize processing before replacing input batch
+
     // Create input batch workspace if it does not exist
     if (!input_batch_.has_value()) {
       auto lock = std::lock_guard<std::recursive_mutex>{mtx_};
       if (!input_batch_.has_value()) {
-        record_input_initializer_streams(res);
-        input_batch_ = create_input_batch(res, first_arg, args...);
+        input_batch_ = create_input_batch(res, first_arg, args..., size_type{});
       }
     }
 
     // Grow input batch workspace if it is not large enough
     if (
-      cur_batch_size_ + input_batch_size >
+      cur_batch_size_.load() + input_batch_size >
       size_type{std::get<0>(input_batch_).extent(0)}
     ) {
       auto lock = std::lock_guard<std::recursive_mutex>{mtx_};
       if (
-        cur_batch_size_ + input_batch_size >
+        cur_batch_size_.load() + input_batch_size >
         size_type{std::get<0>(input_batch_).extent(0)}
       ) {
-        // Another thread may have initialized the input batch on a separate
-        // stream and copied its inputs in without yet synchronizing the
-        // stream. So, if that stream is different from the one we are using
-        // now, we need to ensure that the allocation and copy are complete
-        // before processing the current batch and growing the input workspace.
-        synchronize_input_initializer_streams(res);
         // Process the current batch so that we can clear the input
         process_batch(res);
         // We must synchronize here because deallocation of input_batch_ may
@@ -630,30 +635,35 @@ struct batched_functor :
         // done with the previous input batch. Then it is safe to trigger
         // deallocation, which *may* occur on some other stream, by replacing
         // input_batch_.
-        raft::resource::sync_stream(res);
-        if (raft::resource::is_stream_pool_initialized(res)) {
-          raft::resource::sync_stream_pool(res);
-        }
-        // TODO: Grow input batch using res
-        record_input_initializer_streams(res);
+        detail::synchronize_all_resource_streams(res);
+        input_batch_ = create_input_batch(res, first_arg, args..., size_type{});
       }
     }
-
-    // Input batch workspace must be allocated before proceeding
-    synchronize_input_initializer_streams(res);
 
     // Copy inputs into batch
     {
       auto lock = std::lock_guard<std::recursive_mutex>{mtx_};
+
       if (
-        cur_batch_size_ + input_batch_size >
+        cur_batch_size_.load() + input_batch_size >
         size_type{std::get<0>(input_batch_).extent(0)}
       ) {
         process_batch(res);
+        // No need to synchronize here because we will be copying in the input
+        // on the same strem as we used to initiate processing
       }
-      // TODO: Copy inputs
-      cur_batch_size_ += input_batch_size;
-      // TODO: Generate and return output proxy
+      // Input batch workspace must be allocated before copying to it
+      synchronize_input_initializer_streams(res);
+      copy_inputs_to_batch(
+        res,
+        std::forward_as_tuple(first_arg, args...),
+        std::make_index_sequence<sizeof...(args) + 1>()
+      );
+      return batched_output_proxy{
+        cur_batch_size_.fetch_add(input_batch_size),
+        cur_batch_size_.load(),
+        this->shared_from_this()
+      };
     }
   }
 
@@ -693,18 +703,23 @@ struct batched_functor :
   }
 
   template<typename args_tuple_t, std::size_t... I>
-  static auto create_input_batch(
+  auto create_input_batch(
     raft::resources const& res,
     args_tuple_t&& args_tuple,
+    size_type target_batch_dim,
     std::index_sequence<I...>
   ) {
+    record_input_initializer_streams(res);
     return std::make_tuple(
-      [&res](auto&& arg) {
+      [&res, target_batch_dim](auto&& arg) {
         using array_type = std::tuple_element_t<I, input_batch_type>;
         return array_type{
           res,
           typename array_type::mapping_type{
-            grow_extents<typename array_type::extents_type>(arg.extents())
+            grow_extents<typename array_type::extents_type>(
+              arg.extents(),
+              target_batch_dim
+            )
           },
           typename array_type::container_policy_type{}
         };
@@ -712,11 +727,38 @@ struct batched_functor :
     );
   }
 
+  template<typename args_tuple_t, std::size_t... I>
+  auto copy_inputs_to_batch(
+    raft::resources const& res,
+    args_tuple_t&& args,
+    std::index_sequence<I...>
+  ) {
+    record_input_streams(res);
+    (
+      raft::copy(
+        res,
+        [this](auto&& mds) {
+          return raft::make_mdspan(
+            mds.data_handle(),
+            slice_extents(mds.extents(), cur_batch_size_.load())
+          );
+        }(std::get<I>(*input_batch_).view()),
+        std::get<I>(args)
+      ),
+      ...
+    );
+  }
+
   template<typename... Args>
-  static auto create_input_batch(raft::resources const& res, Args&&... args) {
+  auto create_input_batch(
+      raft::resources const& res,
+      Args&&... args,
+      size_type target_batch_dim
+    ) {
     return create_input_batch(
       res,
       std::forward_as_tuple(args...),
+      target_batch_dim,
       std::make_index_sequence<sizeof...(Args)>()
     );
   }
@@ -733,20 +775,11 @@ struct batched_functor :
   void synchronize_input_streams(raft::resources const& res) {
     synchronize_if_required(res, input_streams_);
   }
-  void record_output_initializer_streams(raft::resources const& res) {
-    record_streams(res, input_initializer_streams_);
-  }
-  void synchronize_output_initializer_streams(raft::resources const& res) {
-    synchronize_if_required(res, output_initializer_streams_);
-  }
   void record_processing_streams(raft::resources const& res) {
     record_streams(res, processing_streams_);
   }
   void synchronize_processing_streams(raft::resources const& res) {
     synchronize_if_required(res, processing_streams_);
-  }
-  void record_output_streams(raft::resources const& res) {
-    record_streams(res, output_streams_);
   }
 
   static void record_streams(raft::resources const& res, std::set<cudaStream_t>& stream_set) {
@@ -789,7 +822,8 @@ struct batched_functor :
     }
   }
 
-  /* Process current batch only if requested output proxy is part of this batch
+  /* Process current batch only if requested output proxy is part of this
+   * batch. Ensure that processing is not still ongoing on other streams.
    */
   void process_batch(
     raft::resources const& res,
@@ -799,6 +833,7 @@ struct batched_functor :
     if (std::find(std::begin(results_), std::end(results_), requested_output)) {
       process_batch(res);
     }
+    synchronize_processing_streams(res);
   }
 
   /* Apply callable to current batch. Output batch will be assigned (as a
@@ -807,8 +842,8 @@ struct batched_functor :
    * distributed to output proxies */
   void process_batch(raft::resources const& res) {
     auto lock = std::lock_guard<std::recursive_mutex>{mtx_};
-    // TODO: Synchronize any stream (except res) that has been used to copy
-    // input into batch
+    synchronize_input_streams(res);
+    record_processing_streams(res);
     auto input_buffers = get_input_buffers(res);
     auto batch_result = result_to_output_batch(res, [this, input_buffers]() {
       if constexpr(detail::is_tuple_v<return_type>) {
@@ -845,7 +880,7 @@ struct batched_functor :
       }
     );
     results_.clear();
-    cur_batch_size_ = size_type{};
+    cur_batch_size_.store(size_type{});
   }
 
   template<typename results_t, std::size_t... I>
@@ -974,9 +1009,7 @@ struct batched_functor :
   std::recursive_mutex mtx_;
   std::set<cudaStream_t> input_initializer_streams_;
   std::set<cudaStream_t> input_streams_;
-  std::set<cudaStream_t> output_initializer_streams_;
   std::set<cudaStream_t> processing_streams_;
-  std::set<cudaStream_t> output_streams_;
 };
 
 template<raft::memory_type MemType, typename lambda_t>
