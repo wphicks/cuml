@@ -27,180 +27,72 @@ struct tuple_type_forwarder<Template, std::tuple<Ts...>> {
   using type = Template<Ts...>;
 };
 
-template <template<typename...> typename Template, typename T>
-struct tuple_value_forwarder;
+/* Infer the return type and arg types of a callable */
+template <typename lambda_t>
+struct lambda_traits;
 
-template <template<typename...> typename Template, typename... Ts>
-struct tuple_value_forwarder<Template, std::tuple<Ts...>> {
-  auto static constexpr const value = Template<Ts...>::value;
+template <typename return_t, typename... args>
+struct lambda_traits<return_t(args...)> {
+  using return_type = return_t;
+  using args_tuple_type = std::tuple<args...>;
 };
 
-/* Split types based on a condition, constructing tuples of each */
+template <typename lambda_t>
+struct lambda_traits : lambda_traits<decltype(&lambda_t::operator())> {};
+
+template <typename lambda_t, typename return_t, typename... args>
+struct lambda_traits<return_t(lambda_t::*)(args...) const> : lambda_traits<return_t(args...)>{};
+
+template <typename T>
+struct only_first_type;
+
+template <typename T, typename... Ts>
+struct only_first_type<std::tuple<T, Ts...>> {
+  using type = T;
+};
+
 template <
-  template<typename...> typename Condition,
-  typename false_index_t,
-  typename false_tuple_t,
-  typename true_index_t,
-  typename true_tuple_t,
-  typename remaining_index_t,
+  template<typename...> typename Condition1,
+  template<typename...> typename Condition2,
   typename... Ts
 >
-struct type_filter_builder;
+struct either : std::disjunction<Condition1<Ts...>, Condition2<Ts...>> {};
 
 template <
-  template<typename...> typename Condition,
-  typename false_index_t,
-  typename false_tuple_t,
-  typename true_index_t,
-  typename true_tuple_t
->
-struct type_filter_builder<
-  Condition,
-  false_index_t,
-  false_tuple_t,
-  true_index_t,
-  true_tuple_t,
-  std::index_sequence<>
-> {
-  using type = true_tuple_t;
-  using sequence = true_index_t;
-  using false_type = false_tuple_t;
-  using false_sequence = false_index_t;
-};
-
-template <
-  template<typename...> typename Condition,
-  typename... false_ts,
-  std::size_t... false_indexes,
-  typename... true_ts,
-  std::size_t... true_indexes,
-  std::size_t current_index,
-  std::size_t... remaining_indexes,
-  typename T,
+  template<typename...> typename Condition1,
+  template<typename...> typename Condition2,
   typename... Ts
 >
-struct type_filter_builder<
-  Condition,
-  std::index_sequence<false_indexes...>,
-  std::tuple<false_ts...>,
-  std::index_sequence<true_indexes...>,
-  std::tuple<true_ts...>,
-  std::index_sequence<current_index, remaining_indexes...>,
-  T, Ts...
->{
-  using type = std::conditional_t<
-    Condition<T>::value,
-    type_filter_builder<
-      Condition,
-      std::index_sequence<false_indexes...>,
-      std::tuple<false_ts...>,
-      std::index_sequence<true_indexes..., current_index>,
-      std::index_sequence<remaining_indexes...>,
-      std::tuple<true_ts..., T>,
-      Ts...
-    >,
-    type_filter_builder<
-      Condition,
-      std::index_sequence<false_indexes..., current_index>,
-      std::tuple<false_ts..., T>,
-      std::index_sequence<true_indexes...>,
-      std::index_sequence<remaining_indexes...>,
-      std::tuple<true_ts...>,
-      Ts...
-    >
-  >;
-};
-
-template <template<typename...> typename Condition, typename... Ts>
-using type_filter = type_filter_builder<
-  Condition,
-  std::index_sequence<>,
-  std::tuple<>,
-  std::index_sequence<>,
-  std::tuple<>,
-  std::make_index_sequence<sizeof...(Ts)>,
-  Ts...
->;
-
-/* Given a template which, when applied to a single type, produces a type with a
- * boolean constexpr value attribute, construct a tuple containing only types
- * for which that value is true. The order of types in the returned tuple will
- * match the order in which they appear in the original pack of types. */
-template <template<typename...> typename Condition, typename... Ts>
-using type_filter_t = typename type_filter<Condition, Ts...>::type;
-
-/* Given a template which, when applied to a single type, produces a type with a
- * boolean constexpr value attribute, constructs an index sequence containing
- * the indexes for which that value is true in the original pack of types */
-template <template<typename...> typename Condition, typename... Ts>
-using type_filter_sequence = typename type_filter<Condition, Ts...>::sequence;
-
-template <typename tuple_t, std::size_t... I>
-auto constexpr tuple_from_sequence(tuple_t tuple, std::index_sequence<I...>) {
-  return std::forward_as_tuple(std::get<I>(tuple)...);
-}
+using all_of_either = std::conjunction<either<Condition1, Condition2, Ts>...>;
 
 template <
-  template<typename...> typename Condition,
+  template<typename...> typename Condition1,
+  template<typename...> typename Condition2,
+  typename T
+>
+struct tuple_all_of_either;
+
+template <
+  template<typename...> typename Condition1,
+  template<typename...> typename Condition2,
   typename... Ts
 >
-auto constexpr filter_tuple(std::tuple<Ts...>&& tuple) {
-  return tuple_from_sequence(
-    std::forward<std::tuple<Ts...>&&>(tuple),
-    type_filter_sequence<Condition, Ts...>{}
-  );
-}
+struct tuple_all_of_either<Condition1, Condition2, std::tuple<Ts...>>
+  : all_of_either<Condition1, Condition2, Ts...> {};
 
-template <
-  template<typename...> typename Condition,
-  typename lambda_t,
-  typename... Args
->
-auto apply_if(lambda_t&& lambda, Args&&... args) {
-  std::apply(
-    std::forward<lambda_t>(lambda),
-    filter_tuple<Condition>(std::forward_as_tuple(args...))
-  );
-}
+template <typename T>
+struct all_but_first_type;
 
-template<
-  typename mdspan_t,
-  std::size_t... I,
-  std::enable_if_t<raft::is_mdspan_v<mdspan_t>>* = nullptr
->
-auto extents_as_tuple(mdspan_t mds, std::index_sequence<I...>) {
-  return std::make_tuple(mds.extent(I)...);
-}
-
-template<
-  typename mdspan_t,
-  std::enable_if_t<raft::is_mdspan_v<mdspan_t>>* = nullptr
->
-auto extents_as_tuple(mdspan_t&& mds) {
-  auto constexpr rank = mdspan_t::rank();
-  return extents_as_tuple(mds, std::make_index_sequence<rank>());
-}
-
-template<
-  typename... Args,
-  std::enable_if_t<raft::is_mdspan_v<Args...>>* = nullptr
->
-auto get_extents_as_tuples(Args&&... args) {
-  return std::make_tuple(
-    extents_as_tuple(args)...
-  );
-}
-
-template <template<typename...> typename Condition, typename T>
-struct tuple_if_types;
-
-template <template<typename...> typename Condition, typename... Ts>
-struct tuple_if_types<Condition, std::tuple<Ts...>>{
-  using type = type_filter_t<Condition, Ts...>;
+template <typename T, typename... Ts>
+struct all_but_first_type<std::tuple<T, Ts...>> {
+  using type = std::tuple<Ts...>;
 };
 
-template <template<typename...> typename Condition, typename T>
-using tuple_if_types_t = typename tuple_if_types<Condition, T>::type;
+template <typename> struct is_tuple: std::false_type {};
+template <typename... Ts> struct is_tuple<std::tuple<Ts...>>: std::true_type {};
+
+template <typename T>
+auto static constexpr const is_tuple_v = is_tuple<T>::value;
 
 template <typename... Ts>
 struct largest_integer;
@@ -232,111 +124,6 @@ struct largest_integer<T, U, Ts...> {
     largest_integer<U, Ts...>
   >;
 };
-
-template <typename T>
-struct all_but_first_type;
-
-template <typename T, typename... Ts>
-struct all_but_first_type<std::tuple<T, Ts...>> {
-  using type = std::tuple<Ts...>;
-};
-
-template <typename T>
-struct only_first_type;
-
-template <typename T, typename... Ts>
-struct only_first_type<std::tuple<T, Ts...>> {
-  using type = T;
-};
-
-/* Given a tuple of types, construct a tuple of mdbuffers containing elements of
- * those types */
-template<typename Extents, typename T>
-struct mdbuffers_tuple;
-
-template<typename Extents, typename... Ts>
-struct mdbuffers_tuple<Extents, std::tuple<Ts...>> {
-  using type = std::tuple<raft::mdbuffer<Ts, Extents>...>;
-};
-template<typename Extents, typename tuple_of_element_ts>
-using mdbuffers_tuple_t = typename mdbuffers_tuple<Extents, tuple_of_element_ts>::type;
-
-/* Given a tuple of types, construct a tuple of mdarrays containing elements of
- * those types with CV qualifiers removed*/
-template<raft::memory_type MemType, typename Extents, typename T>
-struct non_cv_mdarrays_tuple;
-
-template<raft::memory_type MemType, typename Extents, typename... Ts>
-struct non_cv_mdarrays_tuple<MemType, Extents, std::tuple<Ts...>> {
-  using type = std::tuple<typename raft::mdbuffer<Ts, Extents>::owning_type...>;
-};
-template<raft::memory_type MemType, typename Extents, typename tuple_of_element_ts>
-using non_cv_mdarrays_tuple_t = typename non_cv_mdarrays_tuple<MemType, Extents, tuple_of_element_ts>::type;
-
-/* Infer the return type and arg types of a callable */
-template <typename lambda_t>
-struct lambda_traits;
-
-template <typename return_t, typename... args>
-struct lambda_traits<return_t(args...)> {
-  using return_type = return_t;
-  using args_tuple_type = std::tuple<args...>;
-};
-
-template <typename lambda_t>
-struct lambda_traits : lambda_traits<decltype(&lambda_t::operator())> {};
-
-template <typename lambda_t, typename return_t, typename... args>
-struct lambda_traits<return_t(lambda_t::*)(args...) const> : lambda_traits<return_t(args...)>{};
-
-template <typename> struct is_tuple: std::false_type {};
-template <typename... Ts> struct is_tuple<std::tuple<Ts...>>: std::true_type {};
-
-template <typename T>
-auto static constexpr const is_tuple_v = is_tuple<T>::value;
-
-template <
-  template<typename...> typename Condition1,
-  template<typename...> typename Condition2,
-  typename... Ts
->
-struct either : std::disjunction<Condition1<Ts...>, Condition2<Ts...>> {};
-
-template <
-  template<typename...> typename Condition1,
-  template<typename...> typename Condition2,
-  typename... Ts
->
-using all_of_either = std::conjunction<either<Condition1, Condition2, Ts>...>;
-
-template <
-  template<typename...> typename Condition1,
-  template<typename...> typename Condition2,
-  typename T
->
-struct tuple_all_of_either;
-
-template <
-  template<typename...> typename Condition1,
-  template<typename...> typename Condition2,
-  typename... Ts
->
-struct tuple_all_of_either<Condition1, Condition2, std::tuple<Ts...>>
-  : all_of_either<Condition1, Condition2, Ts...> {};
-
-template <typename... Ts>
-using is_input_mdspan_or_mdbuffer = all_of_either<
-  raft::is_input_mdspan,
-  raft::is_input_mdbuffer, 
-  Ts...
->;
-
-template <typename... Ts>
-using is_output_mdspan_or_mdbuffer = all_of_either<
-  raft::is_output_mdspan,
-  raft::is_output_mdbuffer, 
-  Ts...
->;
 
 template<typename lambda_t>
 using is_batchable = std::conjunction<
@@ -1005,7 +792,6 @@ struct batched_functor :
   std::optional<input_batch_type> input_batch_;
   std::optional<output_batch_type> output_batch_;
   std::atomic<size_type> cur_batch_size_;
-  std::vector<batched_output_proxy*> results_;
   std::recursive_mutex mtx_;
   std::set<cudaStream_t> input_initializer_streams_;
   std::set<cudaStream_t> input_streams_;
