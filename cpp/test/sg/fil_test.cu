@@ -260,6 +260,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void generate_forest()
   {
+    std::cout << "generate_forest" << std::endl;
     auto stream = handle.get_stream();
 
     size_t num_nodes = forest_num_nodes();
@@ -1001,7 +1002,7 @@ static const tl::Operator kGT = tl::Operator::kGT;
 static const tl::Operator kGE = tl::Operator::kGE;
 
 std::vector<FilTestParams> predict_dense_inputs = {
-  FIL_TEST_PARAMS(),
+  /*FIL_TEST_PARAMS(),
   FIL_TEST_PARAMS(algo = TREE_REORG),
   FIL_TEST_PARAMS(algo = BATCH_TREE_REORG),
   FIL_TEST_PARAMS(output = SIGMOID),
@@ -1080,14 +1081,22 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   num_trees   = 3 * (FIL_TPB + 1),
                   algo        = BATCH_TREE_REORG,
                   leaf_algo   = GROVE_PER_CLASS,
-                  num_classes = FIL_TPB + 1),
-  FIL_TEST_PARAMS(num_rows    = 103,
-                  num_cols    = 100'000,
+                  num_classes = FIL_TPB + 1),*/
+// FAILURE
+  FIL_TEST_PARAMS(num_rows    = 1,
+                  num_cols    = 58108,
                   depth       = 5,
                   num_trees   = 1,
                   algo        = BATCH_TREE_REORG,
                   leaf_algo   = CATEGORICAL_LEAF,
                   num_classes = 3),
+  /*FIL_TEST_PARAMS(num_rows    = 103,
+                  num_cols    = 100'000,
+                  depth       = 5,
+                  num_trees   = 1,
+                  algo        = BATCH_TREE_REORG,
+                  leaf_algo   = CATEGORICAL_LEAF,
+                  num_classes = 3),*/
   // use shared memory opt-in carveout if available, or infer out of L1 cache
   FIL_TEST_PARAMS(num_rows = 103, num_cols = MAX_SHM_STD / sizeof(float) + 1024, algo = NAIVE),
   FIL_TEST_PARAMS(num_rows    = 103,

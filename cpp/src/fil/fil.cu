@@ -31,6 +31,7 @@ creation and prediction (the main inference kernel is defined in infer.cu). */
 
 #include <thrust/host_vector.h>  // for host_vector
 
+#include <cassert>
 #include <cmath>    // for expf
 #include <cstddef>  // for size_t
 #include <cstdint>  // for uint8_t
@@ -121,9 +122,26 @@ struct forest {
         ssp.cols_in_shmem = cols_in_shmem;
         for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items; ++ssp.n_items) {
           ssp.shm_sz = dispatch_on_fil_template_params(compute_smem_footprint(), ssp);
-          if (ssp.shm_sz < max_shm_) ssp_ = ssp;
+          if (ssp.shm_sz < max_shm_){
+            ssp_ = ssp;
+            std::cout << "CORRECT CONFIGURATION FOUND: " << std::dec << ssp.shm_sz << " < " << max_shm_ << std::endl;
+          }
         }
       }
+      /* std::cout << "max_shm_ >= ssp.shm_sz ? " << std::boolalpha << (max_shm_ >= ssp_.shm_sz) << std::endl;
+      std::cout << "max_shm_ as address -> decimal, hex, binary: " << &max_shm_ << " -> " << std::dec << max_shm_ << ", " << std::hex << max_shm_ << ", ";
+      auto* bytes = reinterpret_cast<unsigned char*>(&max_shm_);
+      for (std::size_t i = std::size_t{}; i < sizeof(max_shm_); ++i){
+        std::cout << std::hex << int(bytes[i]) << " ";
+      }
+      std::cout << std::endl;
+      std::cout << "ssp_.shm_sz as address -> decimal, hex, binary: " << (&(ssp_.shm_sz)) << " -> "  << std::dec << (ssp_.shm_sz) << ", " << std::hex << (ssp_.shm_sz) << ", ";
+      bytes = reinterpret_cast<unsigned char*>(&(ssp_.shm_sz));
+      for (std::size_t i = std::size_t{}; i < sizeof((ssp_.shm_sz)); ++i){
+        std::cout << std::hex << int(bytes[i]) << " ";
+      }
+      std::cout << std::endl; */
+      std::cout << "max_shm_:" << max_shm_ << " should be greater than ssp_.shm_sz: " << ssp.shm_sz << " -> " << int(max_shm_ >= ssp_.shm_sz) <<  " | " << int(std::is_same_v<typeof(max_shm_), int>) << " " << int(std::is_same_v<typeof(ssp_.shm_sz), int>) << "\n";
       ASSERT(max_shm_ >= ssp_.shm_sz,
              "FIL out of shared memory. Perhaps the maximum number of \n"
              "supported classes is exceeded? 5'000 would still be safe.");
@@ -341,12 +359,12 @@ struct forest {
   int max_shm_           = 0;
   real_t threshold_      = 0.5;
   real_t global_bias_    = 0;
-  shmem_size_params class_ssp_;
-  shmem_size_params proba_ssp_;
+  shmem_size_params class_ssp_{};
+  shmem_size_params proba_ssp_{};
   // vector_leaf_ is only used if {class,proba}_ssp_.leaf_algo is VECTOR_LEAF,
   // otherwise it is empty
-  rmm::device_uvector<real_t> vector_leaf_;
-  cat_sets_device_owner cat_sets_;
+  rmm::device_uvector<real_t> vector_leaf_{};
+  cat_sets_device_owner cat_sets_{};
 };
 
 template <typename real_t>

@@ -865,20 +865,25 @@ size_t shmem_size_params::get_smem_footprint()
 template <class KernelParams>
 int compute_smem_footprint::run(predict_params ssp)
 {
+  auto result = int{};
   switch (ssp.sizeof_real) {
     case 4:
-      return ssp
+      result = ssp
         .template get_smem_footprint<KernelParams::N_ITEMS, float, KernelParams::LEAF_ALGO>();
+      break;
     case 8:
-      return ssp
+      result = ssp
         .template get_smem_footprint<KernelParams::N_ITEMS, double, KernelParams::LEAF_ALGO>();
+      break;
     default:
       ASSERT(false,
              "internal error: sizeof_real == %d, but must be 4 or 8",
              static_cast<int>(ssp.sizeof_real));
       // unreachable
-      return 0;
+      result = 0;
   }
+  std::cout << "compute_smem_footprint: " << std::dec << result << std::endl;
+  return result;
 }
 
 // make sure to instantiate all possible get_smem_footprint instantiations
