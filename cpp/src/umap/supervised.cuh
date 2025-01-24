@@ -110,7 +110,7 @@ void categorical_simplicial_set_intersection(raft::sparse::COO<value_t>* graph_c
                                              float far_dist     = 5.0,
                                              float unknown_dist = 1.0)
 {
-  dim3 grid(raft::ceildiv(graph_coo->nnz, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(static_cast<uint64_t>(graph_coo->nnz), TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   fast_intersection_kernel<TPB_X, value_t><<<grid, blk, 0, stream>>>(graph_coo->rows(),
                                                                      graph_coo->cols(),
@@ -235,7 +235,7 @@ void general_simplicial_set_intersection(int* row1_ind,
   T left_min  = max(min1 / 2.0, 1e-8);
   T right_min = max(min2 / 2.0, 1e-8);
 
-  dim3 grid(raft::ceildiv(in1->nnz, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(static_cast<uint64_t>(in1->nnz), TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   sset_intersection_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(row1_ind,
@@ -256,7 +256,7 @@ void general_simplicial_set_intersection(int* row1_ind,
                                                                weight);
   RAFT_CUDA_TRY(cudaGetLastError());
 
-  dim3 grid_n(raft::ceildiv(result->nnz, TPB_X), 1, 1);
+  dim3 grid_n(raft::ceildiv(static_cast<uint64_t>(result->nnz), TPB_X), 1, 1);
 }
 
 template <int TPB_X, typename T>
